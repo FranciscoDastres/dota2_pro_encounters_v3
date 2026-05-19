@@ -179,7 +179,8 @@ function metricIcon(metricKey: string) {
       return <TowerIcon />
     case 'assists':
       return <AssistsIcon />
-    case 'wards':
+    case 'observer_wards_placed':
+    case 'sentry_wards_placed':
       return <WardsIcon />
     default:
       return <BenchmarkIcon />
@@ -190,7 +191,13 @@ function metricTone(metricKey: string, ratio: number): string {
   if (ratio < 0.75) return 'border-rose-300/30 bg-rose-400/10 text-rose-100'
   if (metricKey === 'gold_per_min') return 'border-emerald-300/25 bg-emerald-400/10 text-emerald-100'
   if (metricKey === 'last_hits_per_10') return 'border-cyan-300/25 bg-cyan-400/10 text-cyan-100'
-  if (metricKey === 'assists' || metricKey === 'wards') return 'border-purple-300/25 bg-purple-400/10 text-purple-100'
+  if (
+    metricKey === 'assists' ||
+    metricKey === 'observer_wards_placed' ||
+    metricKey === 'sentry_wards_placed'
+  ) {
+    return 'border-purple-300/25 bg-purple-400/10 text-purple-100'
+  }
   return 'border-white/10 bg-white/[0.03] text-slate-100'
 }
 
@@ -268,7 +275,13 @@ export function CarryComparisonPanel({ accountId, matchId, heroId, percentile = 
   const metricChips = isSupport
     ? [
       { label: 'Assists Ratio', value: formatRatio(data.metrics.find(m => m.key === 'assists')?.ratio || 1), tone: 'text-purple-200' },
-      { label: 'Wards Placed', value: `${data.raw_user.assists} / ${((data.raw_user as any).obs_placed || 0) + ((data.raw_user as any).sen_placed || 0)}`, tone: 'text-fuchsia-200' },
+      {
+        label: 'Wards Placed',
+        value: String(
+          (((data.raw_user as any).obs_placed || 0) + ((data.raw_user as any).sen_placed || 0))
+        ),
+        tone: 'text-fuchsia-200'
+      },
       { label: 'Percentile', value: `${percentile}`, tone: 'text-cyan-200' },
     ]
     : [
@@ -398,48 +411,52 @@ export function CarryComparisonPanel({ accountId, matchId, heroId, percentile = 
                   </tr>
                 </thead>
                 <tbody>
-                  {data.metrics.map((metric) => (
-                    <tr
-                      key={metric.key}
-                      className={[
-                        'border-b border-white/5 last:border-0 transition-colors',
-                        metric.ratio < 0.75 && metric.proValue > 0 ? 'carry-neon-alert' : 'hover:bg-white/[0.02]',
-                      ].join(' ')}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={[
-                              'flex h-9 w-9 items-center justify-center rounded-lg border',
-                              metricTone(metric.key, metric.ratio),
-                            ].join(' ')}
-                          >
-                            {metricIcon(metric.key)}
-                          </div>
-                          <div>
-                            <div className="font-medium text-white">{metric.label}</div>
-                            <div className="text-[11px] text-slate-500">
-                              {metric.proValue === 0 ? 'Impact check' : metric.ratio < 0.75 ? 'Needs more tempo' : 'Within target range'}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-200">
-                        {formatMetricValue(metric.userValue)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-cyan-200">
-                        {metric.proValue > 0 ? formatMetricValue(metric.proValue) : '—'}
-                      </td>
-                      <td
+                  {data.metrics.map((metric) => {
+                    const difference = metric.value - metric.benchmark
+
+                    return (
+                      <tr
+                        key={metric.key}
                         className={[
-                          'px-4 py-3 text-right font-mono',
-                          metric.proValue === 0 ? 'text-slate-400' : metric.difference >= 0 ? 'text-emerald-300' : 'text-rose-300',
+                          'border-b border-white/5 last:border-0 transition-colors',
+                          metric.ratio < 0.75 && metric.benchmark > 0 ? 'carry-neon-alert' : 'hover:bg-white/[0.02]',
                         ].join(' ')}
                       >
-                        {metric.proValue > 0 ? formatDifference(metric.difference) : '—'}
-                      </td>
-                    </tr>
-                  ))}
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={[
+                                'flex h-9 w-9 items-center justify-center rounded-lg border',
+                                metricTone(metric.key, metric.ratio),
+                              ].join(' ')}
+                            >
+                              {metricIcon(metric.key)}
+                            </div>
+                            <div>
+                              <div className="font-medium text-white">{metric.label}</div>
+                              <div className="text-[11px] text-slate-500">
+                                {metric.benchmark === 0 ? 'Impact check' : metric.ratio < 0.75 ? 'Needs more tempo' : 'Within target range'}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono text-slate-200">
+                          {formatMetricValue(metric.value)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono text-cyan-200">
+                          {metric.benchmark > 0 ? formatMetricValue(metric.benchmark) : '—'}
+                        </td>
+                        <td
+                          className={[
+                            'px-4 py-3 text-right font-mono',
+                            metric.benchmark === 0 ? 'text-slate-400' : difference >= 0 ? 'text-emerald-300' : 'text-rose-300',
+                          ].join(' ')}
+                        >
+                          {metric.benchmark > 0 ? formatDifference(difference) : '—'}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

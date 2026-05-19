@@ -45,13 +45,22 @@ export interface SharedMatchesResponse {
 }
 
 export interface CarryComparisonMetric {
-  key: 'gold_per_min' | 'xp_per_min' | 'last_hits_per_10' | 'hero_damage' | 'tower_damage' | 'assists' | 'wards'
+  key:
+  | 'gold_per_min'
+  | 'xp_per_min'
+  | 'last_hits_per_10'
+  | 'hero_damage'
+  | 'tower_damage'
+  | 'assists'
+  | 'hero_healing'
+  | 'stuns'
+  | 'observer_wards_placed'
+  | 'sentry_wards_placed'
   label: string
-  userValue: number
-  proValue: number
-  difference: number
+  value: number
+  benchmark: number
+  percentile: number
   ratio: number
-  passed: boolean
 }
 
 export interface CarryItemTimingComparison {
@@ -111,11 +120,6 @@ export interface CarryComparisonResponse {
   benchmark_percentile: 95 | 99
   scenario: 'stomp' | 'comeback'
   fulfilled_role: boolean
-  role_info: {
-    position: 1 | 2 | 3 | 4 | 5
-    label: string
-    title: string
-  }
   efficiency_gap: {
     score: number
     gpmRatio: number

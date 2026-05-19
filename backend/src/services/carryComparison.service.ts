@@ -236,13 +236,22 @@ export const openDotaBenchmarksSchema = z.object({
 })
 
 export interface CarryComparisonMetric {
-  key: 'gold_per_min' | 'xp_per_min' | 'last_hits_per_10' | 'hero_damage' | 'tower_damage' | 'assists' | 'wards'
+  key:
+  | 'gold_per_min'
+  | 'xp_per_min'
+  | 'last_hits_per_10'
+  | 'hero_damage'
+  | 'tower_damage'
+  | 'assists'
+  | 'hero_healing'
+  | 'stuns'
+  | 'observer_wards_placed'
+  | 'sentry_wards_placed'
   label: string
-  userValue: number
-  proValue: number
-  difference: number
+  value: number
+  benchmark: number
+  percentile: number
   ratio: number
-  passed: boolean
 }
 
 export interface CarryItemTimingComparison {
@@ -615,17 +624,17 @@ function buildMetric(
   label: string,
   userValue: number,
   proValue: number,
-  thresholdRatio = 0.8,
+  percentile: 95 | 99,
 ): CarryComparisonMetric {
   const ratio = proValue > 0 ? userValue / proValue : 1
+
   return {
     key,
     label,
-    userValue: round(userValue),
-    proValue: round(proValue),
-    difference: round(userValue - proValue),
+    value: round(userValue),
+    benchmark: round(proValue),
+    percentile,
     ratio: round(ratio, 3),
-    passed: ratio >= thresholdRatio,
   }
 }
 
@@ -790,21 +799,21 @@ function computeRoleMetrics(
 
   // Arreglo base con las métricas core compartidas
   const metrics: CarryComparisonMetric[] = [
-    buildMetric('gold_per_min', 'GPM', player.gold_per_min, proGpm),
-    buildMetric('xp_per_min', 'XPM', player.xp_per_min, proXp),
-    buildMetric('last_hits_per_10', 'LH/10', userLh10, proLh10),
-    buildMetric('hero_damage', 'Hero Damage', player.hero_damage, proHeroDamage, position >= 4 ? 0.4 : 0.65),
-    buildMetric('tower_damage', 'Tower Damage', player.tower_damage, proTowerDamage, position >= 4 ? 0.2 : 0.65),
+    buildMetric('gold_per_min', 'GPM', player.gold_per_min, proGpm, percentile),
+    buildMetric('xp_per_min', 'XPM', player.xp_per_min, proXp, percentile),
+    buildMetric('last_hits_per_10', 'LH/10', userLh10, proLh10, percentile),
+    buildMetric('hero_damage', 'Hero Damage', player.hero_damage, proHeroDamage, percentile),
+    buildMetric('tower_damage', 'Tower Damage', player.tower_damage, proTowerDamage, percentile),
   ]
 
   // Inyección de métricas específicas para Soportes (Pos 4 y 5)
   if (position === 4 || position === 5) {
     const proAssistsStandard = position === 4 ? 14 : 12
-    const proWardsStandard = position === 5 ? 16 : 10 // El Pos 5 prioriza wards
 
     metrics.push(
-      buildMetric('assists', 'Assists', player.assists, proAssistsStandard, 0.7),
-      buildMetric('wards', 'Wards (O/S)', (player.obs_placed || 0) + (player.sen_placed || 0), proWardsStandard, 0.75)
+      buildMetric('assists', 'Assists', player.assists, proAssistsStandard, percentile),
+      buildMetric('observer_wards_placed', 'Observer Wards', player.obs_placed || 0, position === 5 ? 8 : 5, percentile),
+      buildMetric('sentry_wards_placed', 'Sentry Wards', player.sen_placed || 0, position === 5 ? 8 : 5, percentile),
     )
   }
 

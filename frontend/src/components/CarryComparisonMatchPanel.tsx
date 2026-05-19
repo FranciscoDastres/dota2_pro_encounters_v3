@@ -372,10 +372,10 @@ export function CarryComparisonMatchPanel({ accountId, matchId, heroId, percenti
                       timing.status === 'snapshot'
                         ? 'border-cyan-300/20 bg-cyan-400/5'
                         : timing.status === 'on_time'
-                        ? 'border-emerald-300/20 bg-emerald-400/5'
-                        : timing.status === 'late'
-                          ? 'border-amber-300/20 bg-amber-400/5'
-                          : 'border-rose-300/20 bg-rose-400/5',
+                          ? 'border-emerald-300/20 bg-emerald-400/5'
+                          : timing.status === 'late'
+                            ? 'border-amber-300/20 bg-amber-400/5'
+                            : 'border-rose-300/20 bg-rose-400/5',
                     ].join(' ')}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -392,10 +392,10 @@ export function CarryComparisonMatchPanel({ accountId, matchId, heroId, percenti
                           timing.status === 'snapshot'
                             ? 'bg-cyan-400/10 text-cyan-100'
                             : timing.status === 'on_time'
-                            ? 'bg-emerald-400/10 text-emerald-200'
-                            : timing.status === 'late'
-                              ? 'bg-amber-400/10 text-amber-200'
-                              : 'bg-rose-400/10 text-rose-200',
+                              ? 'bg-emerald-400/10 text-emerald-200'
+                              : timing.status === 'late'
+                                ? 'bg-amber-400/10 text-amber-200'
+                                : 'bg-rose-400/10 text-rose-200',
                         ].join(' ')}
                       >
                         <TimingIcon status={timing.status} />
@@ -429,14 +429,14 @@ export function CarryComparisonMatchPanel({ accountId, matchId, heroId, percenti
           <div className="overflow-x-auto pb-1">
             <div className="flex min-w-max gap-2">
               {purchaseTrail.map((entry) => (
-                  <div key={`${entry.timeMinute ?? 'snapshot'}-${entry.slotLabel ?? entry.itemKey}-${entry.itemKey}`} className="flex w-16 flex-shrink-0 flex-col items-center gap-1">
-                    <IconFrame
-                      src={entry.iconUrl}
-                      alt={entry.itemName}
-                      fallback={entry.itemName.slice(0, 2).toUpperCase()}
+                <div key={`${entry.timeMinute ?? 'snapshot'}-${entry.slotLabel ?? entry.itemKey}-${entry.itemKey}`} className="flex w-16 flex-shrink-0 flex-col items-center gap-1">
+                  <IconFrame
+                    src={entry.iconUrl}
+                    alt={entry.itemName}
+                    fallback={entry.itemName.slice(0, 2).toUpperCase()}
                     className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-black/30"
                     imgClassName="h-full w-full object-contain p-0.5"
-                    />
+                  />
                   <span className="max-w-full truncate text-[10px] text-slate-300">{entry.itemName}</span>
                   <span className="text-[10px] text-cyan-200" title={entry.description ?? entry.itemName}>
                     {entry.slotLabel ?? formatTime(entry.timeMinute)}
@@ -638,48 +638,52 @@ export function CarryComparisonMatchPanel({ accountId, matchId, heroId, percenti
                     </tr>
                   </thead>
                   <tbody>
-                    {data.metrics.map((metric) => (
-                      <tr
-                        key={metric.key}
-                        className={[
-                          'border-b border-white/5 last:border-0 transition-colors',
-                          metric.ratio < 0.8 ? 'carry-neon-alert' : 'hover:bg-white/[0.02]',
-                        ].join(' ')}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={[
-                                'flex h-9 w-9 items-center justify-center rounded-lg border',
-                                metricTone(metric.key, metric.ratio),
-                              ].join(' ')}
-                            >
-                              {metricIcon(metric.key)}
-                            </div>
-                            <div>
-                              <div className="font-medium text-white">{metric.label}</div>
-                              <div className="text-[11px] text-slate-500">
-                                {metric.ratio < 0.8 ? 'Needs more tempo' : 'Within target range'}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono text-slate-200">
-                          {formatNumber(metric.userValue)}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono text-cyan-200">
-                          {formatNumber(metric.proValue)}
-                        </td>
-                        <td
+                    {data.metrics.map((metric) => {
+                      const difference = metric.value - metric.benchmark
+
+                      return (
+                        <tr
+                          key={metric.key}
                           className={[
-                            'px-4 py-3 text-right font-mono',
-                            metric.difference >= 0 ? 'text-emerald-300' : 'text-rose-300',
+                            'border-b border-white/5 last:border-0 transition-colors',
+                            metric.ratio < 0.8 ? 'carry-neon-alert' : 'hover:bg-white/[0.02]',
                           ].join(' ')}
                         >
-                          {formatSigned(metric.difference)}
-                        </td>
-                      </tr>
-                    ))}
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={[
+                                  'flex h-9 w-9 items-center justify-center rounded-lg border',
+                                  metricTone(metric.key, metric.ratio),
+                                ].join(' ')}
+                              >
+                                {metricIcon(metric.key)}
+                              </div>
+                              <div>
+                                <div className="font-medium text-white">{metric.label}</div>
+                                <div className="text-[11px] text-slate-500">
+                                  {metric.ratio < 0.8 ? 'Needs more tempo' : 'Within target range'}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-slate-200">
+                            {formatNumber(metric.value)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-cyan-200">
+                            {formatNumber(metric.benchmark)}
+                          </td>
+                          <td
+                            className={[
+                              'px-4 py-3 text-right font-mono',
+                              difference >= 0 ? 'text-emerald-300' : 'text-rose-300',
+                            ].join(' ')}
+                          >
+                            {formatSigned(difference)}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

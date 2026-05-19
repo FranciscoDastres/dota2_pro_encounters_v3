@@ -48,3 +48,5 @@ test-results/
 .aider*
 
 *:Zone.Identifier
+
+.aider*

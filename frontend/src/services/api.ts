@@ -46,13 +46,23 @@ const sharedMatchesResponseSchema = z.object({
 })
 
 const carryComparisonMetricSchema = z.object({
-  key: z.enum(['gold_per_min', 'xp_per_min', 'last_hits_per_10', 'hero_damage', 'tower_damage']),
+  key: z.enum([
+    'gold_per_min',
+    'xp_per_min',
+    'last_hits_per_10',
+    'hero_damage',
+    'tower_damage',
+    'assists',
+    'hero_healing',
+    'stuns',
+    'observer_wards_placed',
+    'sentry_wards_placed',
+  ]),
   label: z.string(),
-  userValue: z.number(),
-  proValue: z.number(),
-  difference: z.number(),
+  value: z.number(),
+  benchmark: z.number(),
+  percentile: z.number(),
   ratio: z.number(),
-  passed: z.boolean(),
 })
 
 const carryItemTimingComparisonSchema = z.object({
@@ -112,6 +122,11 @@ const carryComparisonResponseSchema = z.object({
   benchmark_percentile: z.union([z.literal(95), z.literal(99)]),
   scenario: z.enum(['stomp', 'comeback']),
   fulfilled_role: z.boolean(),
+  role_info: z.object({
+    position: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
+    label: z.string(),
+    title: z.string(),
+  }),
   efficiency_gap: z.object({
     score: z.number(),
     gpmRatio: z.number(),

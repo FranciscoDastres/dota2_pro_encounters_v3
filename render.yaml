@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: stomptracker-backend
+    env: node
+    region: oregon
+    plan: free
+    rootDir: .
+    buildCommand: npm install --include=dev && npm run build --workspace=backend
+    startCommand: npm run start --workspace=backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: FRONTEND_URL
+        sync: false          # URL de producción de Vercel, ej: https://stomptracker.vercel.app
+      - key: OPENDOTA_API_URL
+        value: https://api.opendota.com/api
+      - key: OPENDOTA_API_KEY
+        sync: false          # Opcional — key de OpenDota para mayor rate limit
+      - key: SUPABASE_URL
+        sync: false          # Settings > API > Project URL
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false          # Settings > API > service_role (secret)

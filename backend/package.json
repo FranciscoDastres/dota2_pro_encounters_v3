@@ -1,0 +1,41 @@
+{
+  "name": "@dota2-pro/backend",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "nodemon",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.104.0",
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "morgan": "^1.10.1",
+    "winston": "^3.19.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^22.13.0",
+    "@types/supertest": "^6.0.2",
+    "@vitest/coverage-v8": "^3.1.0",
+    "eslint": "^10.2.1",
+    "nodemon": "^3.1.9",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.59.0",
+    "vitest": "^3.1.0"
+  }
+}

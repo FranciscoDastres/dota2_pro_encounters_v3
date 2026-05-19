@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Palette ─────────────────────────────────────── */
+  --color-dota-dark:       #080c14;
+  --color-dota-darker:     #040608;
+  --color-dota-surface:    #0f1623;
+  --color-dota-border:     #1e2d45;
+  --color-dota-red:        #c23b22;
+  --color-dota-red-dark:   #8b1a0a;
+  --color-dota-gold:       #00c2ff;
+  --color-dota-gold-light: #40d4ff;
+  --color-dota-gold-dark:  #0088cc;
+  --color-dota-radiant:    #00e5a0;
+  --color-dota-dire:       #ff4757;
+
+  /* ── Typography ──────────────────────────────────── */
+  --font-display: 'Syne', sans-serif;
+  --font-body:    'DM Sans', sans-serif;
+
+  /* ── Animations ──────────────────────────────────── */
+  --animate-fade-up:    fade-up 0.45s ease-out both;
+  --animate-glow:       glow 4s ease-in-out infinite;
+  --animate-slide-down: slide-down 0.3s ease-out both;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+}
+
+.carry-neon-shell {
+  border: 1px solid rgba(64, 212, 255, 0.25);
+  background: rgba(7, 11, 18, 0.96);
+  box-shadow: 0 0 36px rgba(0, 194, 255, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.carry-badge-glow {
+  box-shadow: 0 0 18px rgba(0, 194, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.carry-neon-alert {
+  background: linear-gradient(90deg, rgba(194, 59, 34, 0.2), rgba(255, 71, 87, 0.08));
+  box-shadow: inset 0 0 0 1px rgba(255, 71, 87, 0.24), 0 0 18px rgba(255, 71, 87, 0.16);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glow {
+  0%, 100% { opacity: 0.35; }
+  50%       { opacity: 0.65; }
+}
+
+@keyframes slide-down {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(0); }
+}

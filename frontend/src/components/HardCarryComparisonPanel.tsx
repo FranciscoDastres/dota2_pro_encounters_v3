@@ -3,6 +3,6 @@ import {
   type PositionComparisonPanelProps,
 } from './CarryComparisonPanel'
 
-export function HardSupportComparisonPanel(props: PositionComparisonPanelProps) {
+export function HardCarryComparisonPanel(props: PositionComparisonPanelProps) {
   return <PositionComparisonPanel {...props} />
 }

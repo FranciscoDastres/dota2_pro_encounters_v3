@@ -31,6 +31,12 @@ function timeAgo(unixSeconds: number): string {
   return days === 1 ? '1 day ago' : `${days} days ago`
 }
 
+function formatDuration(seconds: number): string {
+  const minutes = Math.floor(seconds / 60)
+  const remainder = seconds % 60
+  return `${minutes}:${remainder.toString().padStart(2, '0')}`
+}
+
 function isWin(slot: number, radiantWin: boolean): boolean {
   return slot < 128 ? radiantWin : !radiantWin
 }
@@ -192,7 +198,7 @@ export function PlayerProfile({ accountId }: Props) {
       <div className="h-px bg-dota-border/60" />
 
       {/* ── Bottom: top heroes + recent matches ───────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2">
+      <div className="flex flex-col">
 
         {/* Top 3 heroes */}
         <div className="px-5 py-5">
@@ -232,10 +238,10 @@ export function PlayerProfile({ accountId }: Props) {
         </div>
 
         {/* Recent matches */}
-        <div className="border-t border-dota-border/60 px-5 py-5 md:border-t-0 md:border-l">
+        <div className="border-t border-dota-border/60 px-5 py-5">
           <p className="mb-3 text-xs uppercase tracking-wider text-gray-500">Recent Matches (Select to analyze)</p>
           {data.recentMatches.length > 0 ? (
-            <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {data.recentMatches.map((match, idx) => {
                 const won = isWin(match.player_slot, match.radiant_win)
                 const hero = heroMap[match.hero_id]
@@ -246,27 +252,30 @@ export function PlayerProfile({ accountId }: Props) {
                     key={match.match_id}
                     onClick={() => setSelectedMatchIdx(idx)}
                     className={[
-                      'group relative flex items-center gap-3 rounded-lg border px-3 py-2 transition-all hover:scale-[1.01]',
+                      'group relative flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-all hover:scale-[1.01]',
                       isActive
                         ? (won ? 'border-dota-radiant bg-dota-radiant/10' : 'border-dota-dire bg-dota-dire/10')
                         : (won ? 'border-dota-radiant/20 bg-dota-radiant/5 hover:border-dota-radiant/40' : 'border-dota-dire/20 bg-dota-dire/5 hover:border-dota-dire/40'),
                     ].join(' ')}
                   >
-                    <HeroIcon heroId={match.hero_id} heroMap={heroMap} size={9} />
+                    <HeroIcon heroId={match.hero_id} heroMap={heroMap} size={8} />
                     <div className="flex flex-1 min-w-0 flex-col gap-0.5 text-left">
-                      <span className="truncate text-xs font-semibold text-white">
+                      <span className="truncate text-[11px] font-medium text-gray-300">
                         {hero?.localized_name ?? '—'}
                       </span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-[10px] text-gray-500">#{match.match_id}</span>
-                        <span className="text-[10px] text-gray-600">{timeAgo(match.start_time)}</span>
-                      </div>
+                      <span className="truncate font-mono text-[10px] text-gray-600">
+                        #{match.match_id} · {timeAgo(match.start_time)}
+                      </span>
                     </div>
-                    <div className="flex flex-col items-end gap-0.5">
+                    <div className="flex flex-shrink-0 flex-col items-end gap-0.5">
                       <span className={`text-[11px] font-bold ${won ? 'text-dota-radiant' : 'text-dota-dire'}`}>
                         {won ? 'WIN' : 'LOSS'}
                       </span>
-                      <span className="text-[10px] font-mono text-gray-500">{match.kills}/{match.deaths}/{match.assists}</span>
+                      <span className="font-mono text-[10px] text-gray-500">
+                        {match.kills}/{match.deaths}/{match.assists}
+                        {' · '}
+                        {formatDuration(match.duration)}
+                      </span>
                     </div>
                   </button>
                 )

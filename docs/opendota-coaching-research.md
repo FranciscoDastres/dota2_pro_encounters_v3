@@ -1,6 +1,6 @@
 # OpenDota Coaching Research
 
-Last researched: 2026-05-23
+Last researched: 2026-05-24
 
 This file is a reusable research note for future Codex sessions. Load it before
 designing OpenDota-backed coaching features so the API does not need to be
@@ -350,6 +350,54 @@ Coaching ideas:
   - "First death before key timing",
   - "BKB delayed by N minutes",
   - "No tower damage before minute 20".
+
+### Item Constants And Icons
+
+`GET /constants/items`
+
+Use for:
+
+- Mapping OpenDota item keys and numeric item IDs to display names and icons.
+- Tooltips/descriptions for item timing cards and inventory snapshots.
+- Canonicalizing item aliases used in local timing constants or purchase logs.
+
+Observed useful fields on 2026-05-24:
+
+- `id`: numeric item ID used in final inventory slots such as `item_0` through
+  `item_5`, backpack slots, and neutral item fields.
+- `dname`: display name, for example `Black King Bar`.
+- `img`: relative image path, for example
+  `/apps/dota2/images/dota_react/items/blink.png?t=1593393829403`.
+- `abilities[]`: each entry can include `title` and `description`; use the
+  first meaningful description for hover text.
+- `attrib[]`: item stat rows, often with `display` and `value`.
+- `notes` and `lore`: optional extra text; useful as lower-priority tooltip
+  context.
+
+Icon handling:
+
+- Prefer `img` from `/constants/items` when available. It is already the exact
+  current asset path, including cache-busting query params.
+- Prefix the relative `img` path with
+  `https://cdn.cloudflare.steamstatic.com` for the primary CDN URL.
+- Frontend fallback URLs should also try
+  `https://api.opendota.com/apps/dota2/images/dota_react/items/{itemKey}.png`
+  and the legacy `{itemKey}_lg.png` path because some item keys or local timing
+  aliases can drift from the current constants table.
+- Keep aliases centralized. Current known aliases:
+  - `battle_fury` and `battlefury` should resolve to `bfury`.
+  - `shadow_blade` and repo-local `shadow_sb` should resolve to `invis_sword`.
+
+Implementation notes for this repo:
+
+- `backend/src/services/dotaConstants.service.ts` should build
+  `ResolvedItemConstant` from `/constants/items`, including `iconUrl` and
+  `description`.
+- `backend/src/services/carryProgression.service.ts` should use constants by
+  key for purchase logs and by numeric `id` for final inventory snapshots.
+- `frontend/src/components/comparison/IconFrame.tsx` supports multiple image
+  candidates through `fallbackSrcs`; use it for item icons instead of raw
+  `<img>` when rendering coaching panels.
 
 ### Hero Pool And Role Development
 

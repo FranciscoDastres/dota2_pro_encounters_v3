@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { fetchCarryComparison } from '../services/api'
+import { fetchPositionComparison } from '../services/api'
 import type { CarryComparisonResponse } from '../types'
 
 interface CarryComparisonState {
@@ -14,7 +14,7 @@ function cacheKey(accountId: number, matchId: number, heroId: number, percentile
   return `${accountId}:${matchId}:${heroId}:${percentile}`
 }
 
-export function useCarryComparison(
+export function usePositionComparison(
   accountId: number | null,
   matchId: number | null,
   heroId: number | null,
@@ -35,8 +35,6 @@ export function useCarryComparison(
     }
 
     const key = cacheKey(accountId, matchId, heroId, percentile)
-    if (lastKeyRef.current === key && state.data) return
-
     const cached = carryComparisonCache.get(key)
     if (cached) {
       lastKeyRef.current = key
@@ -48,7 +46,7 @@ export function useCarryComparison(
     lastKeyRef.current = key
     setState((current) => ({ ...current, loading: true, error: null }))
 
-    fetchCarryComparison(accountId, matchId, heroId, percentile)
+    fetchPositionComparison(accountId, matchId, heroId, percentile)
       .then((response) => {
         if (cancelled) return
         carryComparisonCache.set(key, response)
@@ -67,3 +65,5 @@ export function useCarryComparison(
 
   return state
 }
+
+export const useCarryComparison = usePositionComparison

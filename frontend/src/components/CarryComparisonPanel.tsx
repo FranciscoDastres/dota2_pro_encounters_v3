@@ -1,258 +1,47 @@
 import { useHeroes } from '../hooks/useHeroes'
-import { useCarryComparison } from '../hooks/useCarryComparison'
+import { usePositionComparison } from '../hooks/usePositionComparison'
+import {
+  AssistsIcon,
+  BenchmarkIcon,
+  BootIcon,
+  GpmIcon,
+  LastHitsIcon,
+  TimingIcon,
+  TowerIcon,
+  MetricIcon,
+} from './comparison/ComparisonIcons'
+import { getRoleTheme, metricTone as sharedMetricTone } from './comparison/comparisonStyles'
+import {
+  formatNumber as formatMetricValue,
+  formatRatio,
+  formatSigned as formatDifference,
+  formatTime as formatMinutes,
+  heroCoverUrl,
+  itemIconFallbackUrls,
+  timingLabel,
+  titleCase,
+} from './comparison/formatters'
+import { ComparisonErrorShell, ComparisonLoadingShell } from './comparison/ComparisonStateShell'
+import { IconFrame } from './comparison/IconFrame'
 
-interface Props {
+export interface PositionComparisonPanelProps {
   accountId: number
   matchId: number
   heroId: number
   percentile?: 95 | 99
 }
 
-const STEAM_CDN = 'https://cdn.cloudflare.steamstatic.com'
-
-function heroCoverUrl(heroName: string | undefined | null): string {
-  const short = (heroName ?? '').replace('npc_dota_hero_', '')
-  return `${STEAM_CDN}/apps/dota2/images/dota_react/heroes/${short}.png`
-}
-
-function itemIconUrl(itemKey: string): string {
-  return `${STEAM_CDN}/apps/dota2/images/dota_react/items/${itemKey}.png`
-}
-
-function formatMetricValue(value: number): string {
-  return Math.abs(value) >= 1000 ? Math.round(value).toLocaleString() : value.toLocaleString()
-}
-
-function formatDifference(value: number): string {
-  const prefix = value > 0 ? '+' : ''
-  return `${prefix}${formatMetricValue(value)}`
-}
-
-function formatRatio(ratio: number): string {
-  return `${Math.round(ratio * 100)}%`
-}
-
-function formatMinutes(minute: number | null): string {
-  if (minute === null) return '—'
-  return `${minute.toFixed(1)}m`
-}
-
-function titleCase(value: string): string {
-  return value
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, char => char.toUpperCase())
-}
-
-function timingLabel(status: 'on_time' | 'late' | 'missing' | 'snapshot'): string {
-  if (status === 'snapshot') return 'Snapshot'
-  if (status === 'on_time') return 'On time'
-  if (status === 'late') return 'Late'
-  return 'Missing'
-}
-
-// ============================================================================
-// ICONOS DE INTERFAZ
-// ============================================================================
-function BenchmarkIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2 4 7v6c0 5 3.4 8.7 8 9 4.6-.3 8-4 8-9V7l-8-5Z" />
-      <path d="M8 11h8" />
-      <path d="M9.5 14.5 11 16l3.5-4" />
-    </svg>
-  )
-}
-
-function GpmIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 19V5" />
-      <path d="M5 19h14" />
-      <path d="M8 15l3-4 3 2 4-6" />
-    </svg>
-  )
-}
-
-function LastHitsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 18h16" />
-      <path d="M7 18V9" />
-      <path d="M12 18V6" />
-      <path d="M17 18v-7" />
-    </svg>
-  )
-}
-
-function DamageIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M13 2 3 14h7l-1 8 12-14h-7l-1-6Z" />
-    </svg>
-  )
-}
-
-function TowerIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M7 21h10" />
-      <path d="M9 21V9l3-4 3 4v12" />
-      <path d="M9 13h6" />
-    </svg>
-  )
-}
-
-function AssistsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  )
-}
-
-function WardsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 2v2" />
-      <path d="M12 20v2" />
-      <path d="m4.93 4.93 1.41 1.41" />
-      <path d="m17.66 17.66 1.41 1.41" />
-      <path d="M2 12h2" />
-      <path d="M20 12h2" />
-      <path d="m6.34 17.66-1.41 1.41" />
-      <path d="m19.07 4.93-1.41 1.41" />
-    </svg>
-  )
-}
-
-function BootIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 4v9l4 2 1 3h8a2 2 0 0 0 0-4h-2l-1-2V4H6Z" />
-    </svg>
-  )
-}
-
-function TimingIcon({ status }: { status: 'on_time' | 'late' | 'missing' | 'snapshot' }) {
-  if (status === 'on_time') {
-    return (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3 2" />
-      </svg>
-    )
-  }
-
-  if (status === 'late') {
-    return (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 8v5l4 2" />
-        <circle cx="12" cy="12" r="9" />
-      </svg>
-    )
-  }
-
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9" />
-      <path d="m8.5 8.5 7 7" />
-      <path d="m15.5 8.5-7 7" />
-    </svg>
-  )
-}
-
-function metricIcon(metricKey: string) {
-  switch (metricKey) {
-    case 'gold_per_min':
-      return <GpmIcon />
-    case 'xp_per_min':
-      return <BenchmarkIcon />
-    case 'last_hits_per_10':
-      return <LastHitsIcon />
-    case 'hero_damage':
-      return <DamageIcon />
-    case 'tower_damage':
-      return <TowerIcon />
-    case 'assists':
-      return <AssistsIcon />
-    case 'observer_wards_placed':
-    case 'sentry_wards_placed':
-      return <WardsIcon />
-    default:
-      return <BenchmarkIcon />
-  }
-}
-
 function metricTone(metricKey: string, ratio: number): string {
-  if (ratio < 0.75) return 'border-rose-300/30 bg-rose-400/10 text-rose-100'
-  if (metricKey === 'gold_per_min') return 'border-emerald-300/25 bg-emerald-400/10 text-emerald-100'
-  if (metricKey === 'last_hits_per_10') return 'border-cyan-300/25 bg-cyan-400/10 text-cyan-100'
-  if (
-    metricKey === 'assists' ||
-    metricKey === 'observer_wards_placed' ||
-    metricKey === 'sentry_wards_placed'
-  ) {
-    return 'border-purple-300/25 bg-purple-400/10 text-purple-100'
-  }
-  return 'border-white/10 bg-white/[0.03] text-slate-100'
+  return sharedMetricTone(metricKey, ratio, 0.75)
 }
 
-// ============================================================================
-// CONFIGURACIÓN DE APARIENCIA DE NEÓN POR POSICIÓN
-// ============================================================================
-function getRoleTheme(position: number) {
-  if (position >= 4) {
-    return {
-      textClass: 'text-purple-300/70',
-      borderClass: 'border-purple-300/20 bg-purple-400/10',
-      iconColor: 'text-purple-100',
-      shellClass: 'border border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.15)] bg-[#0b0f19]',
-      glowColor: '#a855f7'
-    }
-  }
-  return {
-    textClass: 'text-cyan-300/70',
-    borderClass: 'border-cyan-300/20 bg-cyan-400/10',
-    iconColor: 'text-cyan-100',
-    shellClass: 'carry-neon-shell bg-[#070b12]',
-    glowColor: '#34d399'
-  }
-}
-
-export function CarryComparisonPanel({ accountId, matchId, heroId, percentile = 99 }: Props) {
-  const { data, loading, error } = useCarryComparison(accountId, matchId, heroId, percentile)
+export function PositionComparisonPanel({ accountId, matchId, heroId, percentile = 99 }: PositionComparisonPanelProps) {
+  const { data, loading, error } = usePositionComparison(accountId, matchId, heroId, percentile)
   const heroMap = useHeroes()
   const hero = heroMap[heroId]
 
-  if (loading) {
-    return (
-      <section className="carry-neon-shell overflow-hidden rounded-lg">
-        <div className="border-b border-white/10 bg-white/[0.02] p-4 sm:p-5">
-          <div className="mb-4 h-5 w-52 animate-pulse rounded bg-cyan-300/20" />
-          <div className="h-28 animate-pulse rounded-xl bg-white/5" />
-        </div>
-        <div className="p-4 sm:p-5">
-          <div className="space-y-2">
-            {[0, 1, 2, 3].map((item) => (
-              <div key={item} className="h-12 animate-pulse rounded bg-white/5" />
-            ))}
-          </div>
-        </div>
-      </section>
-    )
-  }
-
-  if (error) {
-    return (
-      <section className="carry-neon-shell rounded-lg p-4">
-        <p className="text-sm text-rose-200">{error}</p>
-      </section>
-    )
-  }
+  if (loading) return <ComparisonLoadingShell />
+  if (error) return <ComparisonErrorShell error={error} />
 
   if (!data) return null
 
@@ -278,7 +67,7 @@ export function CarryComparisonPanel({ accountId, matchId, heroId, percentile = 
       {
         label: 'Wards Placed',
         value: String(
-          (((data.raw_user as any).obs_placed || 0) + ((data.raw_user as any).sen_placed || 0))
+          data.raw_user.obs_placed + data.raw_user.sen_placed
         ),
         tone: 'text-fuchsia-200'
       },
@@ -430,7 +219,7 @@ export function CarryComparisonPanel({ accountId, matchId, heroId, percentile = 
                                 metricTone(metric.key, metric.ratio),
                               ].join(' ')}
                             >
-                              {metricIcon(metric.key)}
+                              <MetricIcon metricKey={metric.key} />
                             </div>
                             <div>
                               <div className="font-medium text-white">{metric.label}</div>
@@ -477,9 +266,12 @@ export function CarryComparisonPanel({ accountId, matchId, heroId, percentile = 
               {data.item_timings.map((timing) => (
                 <div
                   key={timing.itemKey}
+                  title={timing.description ?? timing.itemName}
                   className={[
                     'rounded-md border px-3 py-3',
-                    timing.status === 'on_time'
+                    timing.status === 'snapshot'
+                      ? 'border-cyan-300/20 bg-cyan-400/5'
+                      : timing.status === 'on_time'
                       ? 'border-emerald-300/20 bg-emerald-400/5'
                       : timing.status === 'late'
                         ? 'border-amber-300/20 bg-amber-400/5'
@@ -491,14 +283,23 @@ export function CarryComparisonPanel({ accountId, matchId, heroId, percentile = 
                       <div
                         className={[
                           'flex h-8 w-8 items-center justify-center rounded-lg border',
-                          timing.status === 'on_time'
+                          timing.status === 'snapshot'
+                            ? 'border-cyan-300/20 bg-cyan-400/10 text-cyan-100'
+                            : timing.status === 'on_time'
                             ? 'border-emerald-300/20 bg-emerald-400/10 text-emerald-200'
                             : timing.status === 'late'
                               ? 'border-amber-300/20 bg-amber-400/10 text-amber-200'
                               : 'border-rose-300/20 bg-rose-400/10 text-rose-200',
                         ].join(' ')}
                       >
-                        <img src={itemIconUrl(timing.itemKey)} alt={timing.itemName} className="h-5 w-5" />
+                        <IconFrame
+                          src={timing.iconUrl}
+                          alt={timing.itemName}
+                          fallback={timing.itemName.slice(0, 2).toUpperCase()}
+                          fallbackSrcs={itemIconFallbackUrls(timing.itemKey)}
+                          className="flex h-full w-full items-center justify-center"
+                          imgClassName="h-full w-full object-contain p-0.5"
+                        />
                       </div>
                       <div className="min-w-0">
                         <span className="truncate text-sm font-medium text-white">{timing.itemName}</span>
@@ -508,7 +309,9 @@ export function CarryComparisonPanel({ accountId, matchId, heroId, percentile = 
                     <span
                       className={[
                         'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
-                        timing.status === 'on_time'
+                        timing.status === 'snapshot'
+                          ? 'bg-cyan-400/10 text-cyan-100'
+                          : timing.status === 'on_time'
                           ? 'bg-emerald-400/10 text-emerald-200'
                           : timing.status === 'late'
                             ? 'bg-amber-400/10 text-amber-200'
@@ -530,7 +333,9 @@ export function CarryComparisonPanel({ accountId, matchId, heroId, percentile = 
                     <div
                       className={[
                         'h-full rounded-full',
-                        timing.status === 'on_time'
+                        timing.status === 'snapshot'
+                          ? 'bg-cyan-300'
+                          : timing.status === 'on_time'
                           ? 'bg-emerald-300'
                           : timing.status === 'late'
                             ? 'bg-amber-300'
@@ -677,4 +482,8 @@ export function CarryComparisonPanel({ accountId, matchId, heroId, percentile = 
       </div>
     </section>
   )
+}
+
+export function CarryComparisonPanel(props: PositionComparisonPanelProps) {
+  return <PositionComparisonPanel {...props} />
 }

@@ -1,47 +1,23 @@
-/** One pro player entry as returned by /players/{accountId}/pros */
-export interface ProEncounter {
-  account_id: number
-  name?: string | null       // Professional/scene name (e.g. "Miracle-", "N0tail")
-  avatarfull: string
-  profileurl: string
-  personaname: string        // Current Steam display name (can change)
-  team_name: string | null
-  last_match_time: string | null // ISO date string
-  games: number
-  win: number
-  country_code: string | null
-  with_games?: number        // Games played on same team as this pro
-  with_win?: number
-  against_games?: number     // Games played against this pro
-  against_win?: number
+import type {
+  OpenDotaNeutralItemHistory,
+  OpenDotaPurchaseLog,
+} from './carryComparison.schemas'
+
+export type ComparisonPosition = 1 | 2 | 3 | 4 | 5
+export type BenchmarkPercentile = 95 | 99
+export type TimingStatus = 'on_time' | 'late' | 'missing' | 'snapshot'
+
+export interface CoreItemTimingTarget {
+  label: string
+  optimalMinute: number
+  graceMinutes: number
 }
 
-export type MatchFilter = 'all' | 'with' | 'against'
-
-export interface ProEncountersResponse {
-  account_id: number
-  pros: ProEncounter[]
-}
-
-export type SearchStatus = 'idle' | 'loading' | 'success' | 'error'
-
-/** One shared match entry returned by /api/pro-matches/:accountId/:proAccountId */
-export interface SharedMatch {
-  match_id: number
-  start_time: number     // Unix timestamp (seconds)
-  radiant_win: boolean
-  player_slot: number    // 0-4 = radiant, 128-132 = dire
-  hero_id: number
-  kills: number
-  deaths: number
-  assists: number
-  duration: number       // seconds
-}
-
-export interface SharedMatchesResponse {
-  account_id: number
-  pro_account_id: number
-  matches: SharedMatch[]
+export interface RoleMetadata {
+  title: string
+  label: string
+  feedback_ok: string
+  feedback_fail: string
 }
 
 export interface CarryComparisonMetric {
@@ -71,7 +47,7 @@ export interface CarryItemTimingComparison {
   userMinute: number | null
   proMinute: number
   differenceMinutes: number | null
-  status: 'on_time' | 'late' | 'missing' | 'snapshot'
+  status: TimingStatus
 }
 
 export interface CarryPurchaseTrailEntry {
@@ -126,11 +102,11 @@ export interface CarryComparisonResponse {
   account_id: number
   match_id: number
   hero_id: number
-  benchmark_percentile: 95 | 99
+  benchmark_percentile: BenchmarkPercentile
   scenario: 'stomp' | 'comeback'
   fulfilled_role: boolean
   role_info: {
-    position: 1 | 2 | 3 | 4 | 5
+    position: ComparisonPosition
     label: string
     title: string
   }
@@ -162,14 +138,27 @@ export interface CarryComparisonResponse {
     obs_placed: number
     sen_placed: number
     ability_upgrades_arr: number[]
-    neutral_item_history: Array<{
-      time: number
-      item_neutral: string
-      item_neutral_enhancement?: string | null
-    }>
-    purchase_log: Array<{
-      time: number
-      key: string
-    }>
+    neutral_item_history: OpenDotaNeutralItemHistory[]
+    purchase_log: OpenDotaPurchaseLog[]
   }
+}
+
+export interface ResolvedAbilityConstant {
+  key: string
+  dname: string
+  iconUrl: string
+  isTalent: boolean
+}
+
+export interface ResolvedItemConstant {
+  id: number
+  key: string
+  dname: string
+  iconUrl: string
+  description: string | null
+}
+
+export interface HeroAbilityMetadata {
+  abilities: string[]
+  talents: Array<{ name: string; level: number }>
 }

@@ -67,6 +67,7 @@ export interface CarryItemTimingComparison {
   itemKey: string
   itemName: string
   iconUrl: string
+  description: string | null
   userMinute: number | null
   proMinute: number
   differenceMinutes: number | null
@@ -92,6 +93,13 @@ export interface CarrySkillBuildEntry {
   hotkey: 'Q' | 'W' | 'E' | 'R' | 'D' | 'F' | null
 }
 
+export interface CarryTalentOption {
+  abilityKey: string
+  abilityName: string
+  branch: 'left' | 'right' | null
+  selected: boolean
+}
+
 export interface CarryTalentChoice {
   level: 10 | 15 | 20 | 25
   abilityId: number | null
@@ -101,6 +109,7 @@ export interface CarryTalentChoice {
   branch: 'left' | 'right' | null
   alternativeName: string | null
   alternativeKey: string | null
+  options: CarryTalentOption[]
 }
 
 export interface CarryNeutralItemHistoryEntry {
@@ -120,6 +129,11 @@ export interface CarryComparisonResponse {
   benchmark_percentile: 95 | 99
   scenario: 'stomp' | 'comeback'
   fulfilled_role: boolean
+  role_info: {
+    position: 1 | 2 | 3 | 4 | 5
+    label: string
+    title: string
+  }
   efficiency_gap: {
     score: number
     gpmRatio: number
@@ -145,6 +159,8 @@ export interface CarryComparisonResponse {
     net_worth: number | null
     hero_damage: number
     tower_damage: number
+    obs_placed: number
+    sen_placed: number
     ability_upgrades_arr: number[]
     neutral_item_history: Array<{
       time: number
@@ -157,4 +173,3 @@ export interface CarryComparisonResponse {
     }>
   }
 }
-

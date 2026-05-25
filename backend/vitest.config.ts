@@ -6,8 +6,8 @@ export default defineConfig({
     environment: 'node',
     env: {
       NODE_ENV: 'test',
-      SUPABASE_URL: 'https://test.placeholder.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'test-placeholder-service-role-key',
+      DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
+      DATABASE_POOL_MAX: '2',
       FRONTEND_URL: 'http://localhost:5173',
     },
     coverage: {

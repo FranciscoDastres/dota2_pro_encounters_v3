@@ -181,34 +181,29 @@ La validación se realiza en:
 
 ## 🌍 Deployment
 
-### Vercel
+El despliegue de producción objetivo corre en un VPS con Docker Compose:
 
-```bash
-npm run build
-# Deployar carpeta 'dist' a Vercel
-```
+- Caddy sirve el frontend y termina HTTPS.
+- El backend Express queda privado dentro de la red Docker.
+- Postgres reemplaza a Supabase para cache y tablas internas.
+- GitHub Actions construye imágenes y las publica en GHCR; el VPS solo hace
+  `docker compose pull` y `docker compose up -d`.
 
-### Docker
+Ver:
 
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-EXPOSE 5173
-CMD ["npm", "run", "dev"]
-```
+- `docs/vps-docker-migration-plan.md`
+- `docs/vps-deployment-runbook.md`
+- `compose.prod.yml`
+- `deploy/env.production.example`
 
 ## 📝 Variables de Entorno
 
 ```env
 # Desarrollo
-VITE_API_URL=http://localhost:4000
+VITE_API_URL=http://localhost:3000
 
-# Producción
-VITE_API_URL=https://api.example.com
+# Producción detrás de Caddy
+VITE_API_URL=
 ```
 
 ## 🤝 Contribuir

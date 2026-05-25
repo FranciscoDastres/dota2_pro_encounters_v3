@@ -5,7 +5,8 @@ import {
   sharedMatchesResponseSchema,
 } from './apiSchemas'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+const configuredApiUrl = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '')
+const API_BASE_URL = configuredApiUrl ?? (import.meta.env.DEV ? 'http://localhost:3000' : '')
 
 // ---------- Retry with exponential backoff ----------
 

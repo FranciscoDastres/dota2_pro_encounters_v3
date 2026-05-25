@@ -8,22 +8,10 @@ vi.mock('../services/openDota.service', () => ({
   getPlayerPros: mockGetPlayerPros,
 }))
 
-// Supabase chainable builder: from().select().eq().single() / from().upsert()
-const mockSingle = vi.fn()
-const mockEq = vi.fn()
-const mockSelect = vi.fn()
-const mockUpsert = vi.fn()
-const mockFrom = vi.fn()
+const mockQuery = vi.fn()
 
-vi.mock('../services/supabase.service', () => ({
-  supabase: { from: mockFrom },
-}))
-
-vi.mock('../config/env', () => ({
-  env: {
-    SUPABASE_URL: 'https://test.supabase.co',
-    SUPABASE_SERVICE_ROLE_KEY: 'test-key',
-  },
+vi.mock('../services/database.service', () => ({
+  query: mockQuery,
 }))
 
 // Import after mocks so the module picks up the mocked dependencies
@@ -52,20 +40,14 @@ describe('cache.service — getPlayerProsWithCache', () => {
     vi.resetAllMocks()
     clearPlayerProsMemoryCache()
 
-    // Re-wire the Supabase chainable mock after resetAllMocks clears implementations
-    mockSingle.mockResolvedValue({ data: null, error: null })
-    mockEq.mockReturnValue({ single: mockSingle })
-    mockSelect.mockReturnValue({ eq: mockEq })
-    mockUpsert.mockResolvedValue({ error: null })
-    mockFrom.mockReturnValue({ select: mockSelect, upsert: mockUpsert })
+    mockQuery.mockResolvedValue({ rows: [] })
   })
 
-  describe('when Supabase is configured', () => {
+  describe('when Postgres is configured', () => {
 
     it('returns cached data without calling OpenDota when the cache is fresh', async () => {
-      mockSingle.mockResolvedValueOnce({
-        data: { pros: mockPros, cached_at: new Date().toISOString() },
-        error: null,
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ pros: mockPros, cached_at: new Date().toISOString() }],
       })
 
       const result = await getPlayerProsWithCache(12345)
@@ -76,43 +58,55 @@ describe('cache.service — getPlayerProsWithCache', () => {
 
     it('calls OpenDota and upserts when the cache entry is stale (> 1h)', async () => {
       const staleDate = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-      mockSingle.mockResolvedValueOnce({
-        data: { pros: [], cached_at: staleDate },
-        error: null,
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ pros: [], cached_at: staleDate }],
       })
       mockGetPlayerPros.mockResolvedValueOnce(mockPros)
 
       const result = await getPlayerProsWithCache(12345)
 
       expect(mockGetPlayerPros).toHaveBeenCalledWith(12345)
-      expect(mockUpsert).toHaveBeenCalled()
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('insert into match_cache'),
+        [12345, JSON.stringify(mockPros)],
+      )
       expect(result).toEqual(mockPros)
     })
 
     it('calls OpenDota and upserts when there is no cache entry', async () => {
-      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockQuery.mockResolvedValueOnce({ rows: [] })
       mockGetPlayerPros.mockResolvedValueOnce(mockPros)
 
       const result = await getPlayerProsWithCache(12345)
 
       expect(mockGetPlayerPros).toHaveBeenCalledWith(12345)
-      expect(mockUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({ steam_id: 12345, pros: mockPros }),
-        { onConflict: 'steam_id' },
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('insert into match_cache'),
+        [12345, JSON.stringify(mockPros)],
       )
       expect(result).toEqual(mockPros)
     })
 
     it('stores the correct accountId as steam_id in the upsert', async () => {
-      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockQuery.mockResolvedValueOnce({ rows: [] })
       mockGetPlayerPros.mockResolvedValueOnce([])
 
       await getPlayerProsWithCache(99999999)
 
-      expect(mockUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({ steam_id: 99999999 }),
-        expect.anything(),
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('insert into match_cache'),
+        [99999999, JSON.stringify([])],
       )
+    })
+
+    it('falls back to OpenDota when the cache read fails', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('database down'))
+      mockGetPlayerPros.mockResolvedValueOnce(mockPros)
+
+      const result = await getPlayerProsWithCache(12345)
+
+      expect(mockGetPlayerPros).toHaveBeenCalledWith(12345)
+      expect(result).toEqual(mockPros)
     })
   })
 })

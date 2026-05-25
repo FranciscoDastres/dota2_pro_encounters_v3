@@ -9,6 +9,7 @@ const mockProsResponse = {
   pros: [
     {
       account_id: 87278757,
+      name: 'Miracle-',
       avatarfull: 'https://example.com/avatar.jpg',
       profileurl: 'https://steamcommunity.com/id/Miracle-/',
       personaname: 'Miracle-',
@@ -20,6 +21,7 @@ const mockProsResponse = {
     },
     {
       account_id: 111620041,
+      name: 'Puppey',
       avatarfull: 'https://example.com/avatar2.jpg',
       profileurl: 'https://steamcommunity.com/id/Puppey/',
       personaname: 'Puppey',
@@ -94,8 +96,8 @@ test.describe('StompTracker — search results', () => {
 
     await expect(page.getByTestId('summary-bar')).toBeVisible()
     await expect(page.getByTestId('summary-bar')).toContainText('2')
-    await expect(page.getByText('Miracle-')).toBeVisible()
-    await expect(page.getByText('Puppey')).toBeVisible()
+    await expect(page.getByRole('link', { name: /Miracle-/ })).toBeVisible()
+    await expect(page.getByRole('link', { name: /Puppey/ })).toBeVisible()
   })
 
   test('shows the empty state when the player has no pro encounters', async ({ page }) => {

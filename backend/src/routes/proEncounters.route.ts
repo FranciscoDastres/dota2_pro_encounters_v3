@@ -11,7 +11,7 @@ const router = Router()
 /**
  * GET /api/pro-encounters/:accountId
  * Returns all pro players a given Dota 2 account has played with/against.
- * Responses are served from Supabase cache (TTL 1h) when available.
+ * Responses are served from Postgres cache (TTL 1h) when available.
  */
 router.get('/:accountId', validateParams(proEncountersParamsSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {

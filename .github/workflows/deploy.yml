@@ -60,9 +60,13 @@ jobs:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
           set -euo pipefail
+          test -n "$VPS_SSH_KEY" || (echo 'Missing VPS_SSH_KEY secret' >&2; exit 1)
           mkdir -p ~/.ssh
-          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub
+          echo "Deploy key fingerprint:"
+          ssh-keygen -lf ~/.ssh/deploy_key.pub
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
 
       - name: Upload deployment files
@@ -71,8 +75,8 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/deploy_key "$VPS_USER@$VPS_HOST" "mkdir -p '$DEPLOY_PATH'/backups"
-          scp -i ~/.ssh/deploy_key -r compose.prod.yml database scripts deploy/systemd "$VPS_USER@$VPS_HOST:$DEPLOY_PATH/"
+          ssh -o BatchMode=yes -o IdentitiesOnly=yes -i ~/.ssh/deploy_key "$VPS_USER@$VPS_HOST" "mkdir -p '$DEPLOY_PATH'/backups"
+          scp -o BatchMode=yes -o IdentitiesOnly=yes -i ~/.ssh/deploy_key -r compose.prod.yml database scripts deploy/systemd "$VPS_USER@$VPS_HOST:$DEPLOY_PATH/"
 
       - name: Pull images and restart Compose services
         env:
@@ -84,7 +88,7 @@ jobs:
           set -euo pipefail
           remote_web_image="${WEB_IMAGE}:main"
           remote_backend_image="${BACKEND_IMAGE}:main"
-          printf '%s' "$GHCR_READ_TOKEN" | ssh -i ~/.ssh/deploy_key "$VPS_USER@$VPS_HOST" "\
+          printf '%s' "$GHCR_READ_TOKEN" | ssh -o BatchMode=yes -o IdentitiesOnly=yes -i ~/.ssh/deploy_key "$VPS_USER@$VPS_HOST" "\
             set -e; \
             cd '$DEPLOY_PATH'; \
             test -f .env || (echo 'Missing /opt/stomptracker/.env' >&2; exit 1); \

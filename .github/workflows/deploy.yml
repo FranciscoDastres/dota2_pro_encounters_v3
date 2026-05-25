@@ -60,11 +60,16 @@ jobs:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
           set -euo pipefail
+          test -n "$VPS_HOST" || (echo 'Missing VPS_HOST secret' >&2; exit 1)
           test -n "$VPS_SSH_KEY" || (echo 'Missing VPS_SSH_KEY secret' >&2; exit 1)
           mkdir -p ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub
+          if ! ssh-keygen -y -P "" -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub 2>/dev/null; then
+            echo 'VPS_SSH_KEY must be an unencrypted private key readable by GitHub Actions.' >&2
+            echo 'Generate a dedicated deploy key with: ssh-keygen -t ed25519 -C github-actions-stomptracker-deploy -f ./stomptracker_deploy -N ""' >&2
+            exit 1
+          fi
           echo "Deploy key fingerprint:"
           ssh-keygen -lf ~/.ssh/deploy_key.pub
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts

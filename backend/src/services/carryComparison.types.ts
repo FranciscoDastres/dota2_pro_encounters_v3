@@ -6,6 +6,7 @@ import type {
 export type ComparisonPosition = 1 | 2 | 3 | 4 | 5
 export type BenchmarkPercentile = 95 | 99
 export type TimingStatus = 'on_time' | 'late' | 'missing' | 'snapshot'
+export type ItemTimingSource = 'purchase_log' | 'component_inference' | 'unavailable'
 
 export interface CoreItemTimingTarget {
   label: string
@@ -45,6 +46,8 @@ export interface CarryItemTimingComparison {
   iconUrl: string
   description: string | null
   userMinute: number | null
+  completedMinute: number | null
+  timingSource: ItemTimingSource
   proMinute: number
   differenceMinutes: number | null
   status: TimingStatus
@@ -156,6 +159,7 @@ export interface ResolvedItemConstant {
   dname: string
   iconUrl: string
   description: string | null
+  components: string[]
 }
 
 export interface HeroAbilityMetadata {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { proEncountersParamsSchema, proMatchesParamsSchema } from '../schemas/params.schema'
+import { openDotaItemsSchema } from '../services/carryComparison.schemas'
 
 describe('proEncountersParamsSchema', () => {
   it('accepts a valid numeric account ID', () => {
@@ -92,5 +93,24 @@ describe('proMatchesParamsSchema', () => {
   it('rejects when proAccountId is missing', () => {
     const result = proMatchesParamsSchema.safeParse({ accountId: '12345678' })
     expect(result.success).toBe(false)
+  })
+})
+
+describe('openDotaItemsSchema', () => {
+  it('accepts nullable item metadata from dotaconstants', () => {
+    const result = openDotaItemsSchema.parse({
+      tidehunter_fish: {
+        id: 9999,
+        dname: null,
+        img: null,
+        components: null,
+        abilities: null,
+        attrib: null,
+        notes: null,
+        lore: null,
+      },
+    })
+
+    expect(result.tidehunter_fish.components).toBeNull()
   })
 })

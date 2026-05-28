@@ -39,6 +39,14 @@ router.get('/:accountId/:proAccountId', validateParams(proMatchesParamsSchema), 
           : 'Could not connect to the OpenDota API.',
       ) as AppError
       appErr.status = status === 429 ? 429 : 503
+      if (appErr.status === 503) res.set('Retry-After', '30')
+      return next(appErr)
+    }
+
+    if (err instanceof Error && err.message.includes('circuit open')) {
+      const appErr = new Error('Could not connect to the OpenDota API.') as AppError
+      appErr.status = 503
+      res.set('Retry-After', '30')
       return next(appErr)
     }
     next(err)

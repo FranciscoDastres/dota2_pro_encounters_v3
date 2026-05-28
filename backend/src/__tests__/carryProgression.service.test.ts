@@ -19,6 +19,7 @@ describe('carry progression helpers', () => {
         dname: 'Shadow Blade',
         iconUrl: 'https://cdn.test/items/invis_sword.png',
         description: 'Become invisible and move faster.',
+        components: [],
       },
     ]
 
@@ -35,6 +36,65 @@ describe('carry progression helpers', () => {
       description: 'Become invisible and move faster.',
       status: 'on_time',
       userMinute: 15,
+      completedMinute: 15,
+      timingSource: 'purchase_log',
+    })
+  })
+
+  it('can estimate completed item timing from components when the final inventory confirms the item', () => {
+    const itemConstants: ResolvedItemConstant[] = [
+      itemConstant(166, 'maelstrom', 'Maelstrom', ['mithril_hammer', 'javelin', 'gloves']),
+      itemConstant(161, 'mithril_hammer', 'Mithril Hammer'),
+      itemConstant(225, 'javelin', 'Javelin'),
+      itemConstant(24, 'gloves', 'Gloves of Haste'),
+    ]
+
+    const result = compareItemTimings(
+      41,
+      [
+        { time: 420, key: 'mithril_hammer' },
+        { time: 610, key: 'javelin' },
+        { time: 720, key: 'gloves' },
+      ],
+      itemConstants,
+      {
+        match_id: 1,
+        hero_id: 41,
+        item_0: 166,
+        item_1: 0,
+        item_2: 0,
+        item_3: 0,
+        item_4: 0,
+        item_5: 0,
+        backpack_0: 0,
+        backpack_1: 0,
+        backpack_2: 0,
+        item_neutral: 0,
+        item_neutral2: 0,
+        kills: 0,
+        deaths: 0,
+        assists: 0,
+        gold_per_min: 0,
+        xp_per_min: 0,
+        last_hits: 0,
+        hero_damage: 0,
+        tower_damage: 0,
+        obs_placed: 0,
+        sen_placed: 0,
+        ability_upgrades_arr: [],
+        purchase_log: [],
+        neutral_item_history: [],
+        deaths_log: [],
+      },
+    )
+
+    const maelstrom = result.find((timing) => timing.itemKey === 'maelstrom')
+
+    expect(maelstrom).toMatchObject({
+      userMinute: 12,
+      completedMinute: 12,
+      timingSource: 'component_inference',
+      status: 'on_time',
     })
   })
 
@@ -102,5 +162,21 @@ function talentConstant(key: string, dname: string): ResolvedAbilityConstant {
     dname,
     iconUrl: '',
     isTalent: true,
+  }
+}
+
+function itemConstant(
+  id: number,
+  key: string,
+  dname: string,
+  components: string[] = [],
+): ResolvedItemConstant {
+  return {
+    id,
+    key,
+    dname,
+    iconUrl: `https://cdn.test/items/${key}.png`,
+    description: dname,
+    components,
   }
 }

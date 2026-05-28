@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type {
   CarryComparisonMetric,
   CarryComparisonResponse,
+  CarryItemTimingComparison,
   CarryNeutralItemHistoryEntry,
   CarryPurchaseTrailEntry,
   CarrySkillBuildEntry,
@@ -13,11 +14,11 @@ import {
   BootIcon,
   GpmIcon,
   LastHitsIcon,
-  TimingIcon,
   TowerIcon,
   MetricIcon,
 } from './ComparisonIcons'
 import { IconFrame } from './IconFrame'
+import { ItemHoverCard } from './ItemHoverCard'
 import { getRoleTheme, metricTone } from './comparisonStyles'
 import {
   cleanTalentLabel,
@@ -28,10 +29,29 @@ import {
   heroCoverUrl,
   itemIconFallbackUrls,
   titleCase,
-  timingLabel,
 } from './formatters'
 
 type Hero = HeroMap[number] | undefined
+
+function itemCompletionMetaLines(timing: CarryItemTimingComparison): string[] {
+  const completedMinute = timing.completedMinute ?? timing.userMinute
+  const completionLine = completedMinute === null
+    ? 'Timing de completado no disponible'
+    : timing.timingSource === 'component_inference'
+      ? `Completado estimado: ${formatTime(completedMinute)}`
+      : `Completado: ${formatTime(completedMinute)}`
+  const sourceLine = timing.timingSource === 'component_inference'
+    ? 'Fuente: inferido por ultimo componente registrado'
+    : timing.timingSource === 'purchase_log'
+      ? 'Fuente: OpenDota purchase_log'
+      : 'Fuente: inventario final sin timing'
+
+  return [
+    completionLine,
+    sourceLine,
+    `Objetivo pro: ${timing.proMinute.toFixed(1)}m`,
+  ]
+}
 
 export function MatchBenchmarkHeader({
   data,
@@ -173,17 +193,23 @@ export function MatchSnapshotSection({ data, kda }: { data: CarryComparisonRespo
             <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
               {hasTimingSnapshotOnly ? 'Core Items' : 'Core Timings'}
             </p>
-            <span className="text-[11px] text-slate-400">
-              {hasTimingSnapshotOnly ? 'final inventory snapshot' : 'vs. pro target'}
-            </span>
+            {!hasTimingSnapshotOnly && (
+              <span className="text-[11px] text-slate-400">vs. pro target</span>
+            )}
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {data.item_timings.map((timing) => (
-              <div
+          <div className="flex flex-wrap gap-2 pb-1">
+            {data.item_timings.map((timing, index) => (
+              <ItemHoverCard
                 key={timing.itemKey}
-                title={timing.description ?? timing.itemName}
+                itemName={timing.itemName}
+                description={timing.description}
+                metaLines={itemCompletionMetaLines(timing)}
+                align={index === data.item_timings.length - 1 ? 'right' : 'left'}
+                className="min-w-[92px] flex-1 sm:flex-none"
+              >
+                <div
                 className={[
-                  'min-w-[92px] rounded-md border px-2 py-2 transition-colors',
+                  'h-full rounded-md border px-2 py-2 transition-colors',
                   timing.status === 'snapshot'
                     ? 'border-cyan-300/20 bg-cyan-400/5 hover:border-cyan-300/40'
                     : timing.status === 'on_time'
@@ -193,7 +219,7 @@ export function MatchSnapshotSection({ data, kda }: { data: CarryComparisonRespo
                         : 'border-rose-300/20 bg-rose-400/5 hover:border-rose-300/40',
                 ].join(' ')}
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
                   <IconFrame
                     src={timing.iconUrl}
                     alt={timing.itemName}
@@ -202,27 +228,15 @@ export function MatchSnapshotSection({ data, kda }: { data: CarryComparisonRespo
                     className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-black/30"
                     imgClassName="h-full w-full object-contain p-0.5"
                   />
-                  <span className={[
-                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
-                    timing.status === 'snapshot'
-                      ? 'bg-cyan-400/10 text-cyan-100'
-                      : timing.status === 'on_time'
-                        ? 'bg-emerald-400/10 text-emerald-200'
-                        : timing.status === 'late'
-                          ? 'bg-amber-400/10 text-amber-200'
-                          : 'bg-rose-400/10 text-rose-200',
-                  ].join(' ')}>
-                    <TimingIcon status={timing.status} />
-                    {timingLabel(timing.status)}
-                  </span>
                 </div>
                 <p className="mt-2 truncate text-xs font-medium text-white">{timing.itemName}</p>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  {timing.status === 'snapshot'
-                    ? 'Final loadout snapshot'
-                    : `You ${formatTime(timing.userMinute)} · Pro ${timing.proMinute.toFixed(1)}m`}
-                </p>
-              </div>
+                {timing.status !== 'snapshot' && (
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    You {formatTime(timing.completedMinute ?? timing.userMinute)} · Pro {timing.proMinute.toFixed(1)}m
+                  </p>
+                )}
+                </div>
+              </ItemHoverCard>
             ))}
           </div>
         </div>
@@ -237,31 +251,41 @@ export function PurchaseTrailSection({ purchaseTrail }: { purchaseTrail: CarryPu
       <SectionTitle
         icon={<BootIcon />}
         title="Purchase Trail"
-        subtitle="The item path from your actual match log or final inventory snapshot"
+        subtitle="The item path from your actual match log or inventory"
       />
 
       <div className="overflow-x-auto pb-1">
         <div className="flex min-w-max gap-2">
-          {purchaseTrail.map((entry) => (
-            <div
+          {purchaseTrail.map((entry, index) => (
+            <ItemHoverCard
               key={`${entry.timeMinute ?? 'snapshot'}-${entry.slotLabel ?? entry.itemKey}-${entry.itemKey}`}
-              title={entry.description ?? entry.itemName}
-              className="flex w-16 flex-shrink-0 flex-col items-center gap-1 rounded-md px-1 py-1 transition-colors hover:bg-white/[0.04]"
+              itemName={entry.itemName}
+              description={entry.description}
+              metaLines={[
+                entry.timeMinute === null
+                  ? 'Minuto de compra no disponible'
+                  : `Adquirido: ${formatTime(entry.timeMinute)}`,
+                entry.slotLabel ? `Inventario: ${entry.slotLabel}` : '',
+              ].filter(Boolean)}
+              align={index > purchaseTrail.length - 3 ? 'right' : 'left'}
+              className="w-16 flex-shrink-0"
             >
-              <IconFrame
-                src={entry.iconUrl}
-                alt={entry.itemName}
-                fallback={entry.itemName.slice(0, 2).toUpperCase()}
-                fallbackSrcs={itemIconFallbackUrls(entry.itemKey)}
-                className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-black/30"
-                imgClassName="h-full w-full object-contain p-0.5"
-              />
-              <span className="max-w-full truncate text-[10px] text-slate-300">{entry.itemName}</span>
-              <span className="text-[10px] text-cyan-200" title={entry.description ?? entry.itemName}>
-                {entry.slotLabel ?? formatTime(entry.timeMinute)}
-              </span>
-              <span className="sr-only">{entry.description ?? entry.itemName}</span>
-            </div>
+              <div className="flex w-full flex-col items-center gap-1 rounded-md px-1 py-1 transition-colors hover:bg-white/[0.04]">
+                <IconFrame
+                  src={entry.iconUrl}
+                  alt={entry.itemName}
+                  fallback={entry.itemName.slice(0, 2).toUpperCase()}
+                  fallbackSrcs={itemIconFallbackUrls(entry.itemKey)}
+                  className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-black/30"
+                  imgClassName="h-full w-full object-contain p-0.5"
+                />
+                <span className="max-w-full truncate text-[10px] text-slate-300">{entry.itemName}</span>
+                <span className="text-[10px] text-cyan-200">
+                  {entry.slotLabel ?? formatTime(entry.timeMinute)}
+                </span>
+                <span className="sr-only">{entry.description ?? entry.itemName}</span>
+              </div>
+            </ItemHoverCard>
           ))}
         </div>
       </div>

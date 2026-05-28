@@ -1,12 +1,12 @@
 import { useHeroes } from '../hooks/useHeroes'
 import { usePositionComparison } from '../hooks/usePositionComparison'
+import type { CarryItemTimingComparison } from '../types'
 import {
   AssistsIcon,
   BenchmarkIcon,
   BootIcon,
   GpmIcon,
   LastHitsIcon,
-  TimingIcon,
   TowerIcon,
   MetricIcon,
 } from './comparison/ComparisonIcons'
@@ -18,11 +18,11 @@ import {
   formatTime as formatMinutes,
   heroCoverUrl,
   itemIconFallbackUrls,
-  timingLabel,
   titleCase,
 } from './comparison/formatters'
 import { ComparisonErrorShell, ComparisonLoadingShell } from './comparison/ComparisonStateShell'
 import { IconFrame } from './comparison/IconFrame'
+import { ItemHoverCard } from './comparison/ItemHoverCard'
 
 export interface PositionComparisonPanelProps {
   accountId: number
@@ -33,6 +33,26 @@ export interface PositionComparisonPanelProps {
 
 function metricTone(metricKey: string, ratio: number): string {
   return sharedMetricTone(metricKey, ratio, 0.75)
+}
+
+function itemCompletionMetaLines(timing: CarryItemTimingComparison): string[] {
+  const completedMinute = timing.completedMinute ?? timing.userMinute
+  const completionLine = completedMinute === null
+    ? 'Timing de completado no disponible'
+    : timing.timingSource === 'component_inference'
+      ? `Completado estimado: ${formatMinutes(completedMinute)}`
+      : `Completado: ${formatMinutes(completedMinute)}`
+  const sourceLine = timing.timingSource === 'component_inference'
+    ? 'Fuente: inferido por ultimo componente registrado'
+    : timing.timingSource === 'purchase_log'
+      ? 'Fuente: OpenDota purchase_log'
+      : 'Fuente: inventario final sin timing'
+
+  return [
+    completionLine,
+    sourceLine,
+    `Objetivo pro: ${timing.proMinute.toFixed(1)}m`,
+  ]
 }
 
 export function PositionComparisonPanel({ accountId, matchId, heroId, percentile = 99 }: PositionComparisonPanelProps) {
@@ -263,10 +283,13 @@ export function PositionComparisonPanel({ accountId, matchId, heroId, percentile
             </div>
 
             <div className="grid gap-3">
-              {data.item_timings.map((timing) => (
-                <div
+              {data.item_timings.map((timing, index) => (
+                <ItemHoverCard
                   key={timing.itemKey}
-                  title={timing.description ?? timing.itemName}
+                  itemName={timing.itemName}
+                  description={timing.description}
+                  metaLines={itemCompletionMetaLines(timing)}
+                  align={index === data.item_timings.length - 1 ? 'right' : 'left'}
                   className={[
                     'rounded-md border px-3 py-3',
                     timing.status === 'snapshot'
@@ -306,29 +329,16 @@ export function PositionComparisonPanel({ accountId, matchId, heroId, percentile
                         <p className="text-[11px] text-slate-400">Pro target {timing.proMinute}m</p>
                       </div>
                     </div>
-                    <span
-                      className={[
-                        'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
-                        timing.status === 'snapshot'
-                          ? 'bg-cyan-400/10 text-cyan-100'
-                          : timing.status === 'on_time'
-                          ? 'bg-emerald-400/10 text-emerald-200'
-                          : timing.status === 'late'
-                            ? 'bg-amber-400/10 text-amber-200'
-                            : 'bg-rose-400/10 text-rose-200',
-                      ].join(' ')}
-                    >
-                      <TimingIcon status={timing.status} />
-                      {timingLabel(timing.status)}
-                    </span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
-                    <span>You: {formatMinutes(timing.userMinute)}</span>
-                    <span>Pro: {timing.proMinute.toFixed(1)}m</span>
-                    <span className={timing.differenceMinutes !== null && timing.differenceMinutes > 0 ? 'text-rose-200' : 'text-emerald-200'}>
-                      {timing.differenceMinutes === null ? 'No timing' : formatDifference(timing.differenceMinutes)}
-                    </span>
-                  </div>
+                  {timing.status !== 'snapshot' && (
+                    <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+                      <span>You: {formatMinutes(timing.completedMinute ?? timing.userMinute)}</span>
+                      <span>Pro: {timing.proMinute.toFixed(1)}m</span>
+                      <span className={timing.differenceMinutes !== null && timing.differenceMinutes > 0 ? 'text-rose-200' : 'text-emerald-200'}>
+                        {timing.differenceMinutes === null ? 'No timing' : formatDifference(timing.differenceMinutes)}
+                      </span>
+                    </div>
+                  )}
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/5">
                     <div
                       className={[
@@ -344,7 +354,7 @@ export function PositionComparisonPanel({ accountId, matchId, heroId, percentile
                       style={{ width: timing.userMinute ? `${Math.min(100, Math.max(20, (timing.proMinute / timing.userMinute) * 100))}%` : '22%' }}
                     />
                   </div>
-                </div>
+                </ItemHoverCard>
               ))}
             </div>
           </div>

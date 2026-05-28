@@ -69,6 +69,8 @@ export interface CarryItemTimingComparison {
   iconUrl: string
   description: string | null
   userMinute: number | null
+  completedMinute: number | null
+  timingSource: 'purchase_log' | 'component_inference' | 'unavailable'
   proMinute: number
   differenceMinutes: number | null
   status: 'on_time' | 'late' | 'missing' | 'snapshot'

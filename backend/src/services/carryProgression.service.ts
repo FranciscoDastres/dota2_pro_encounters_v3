@@ -51,6 +51,42 @@ function resolveItemById(constants: ResolvedItemConstant[], itemId: number): Res
   return constants.find((entry) => entry.id === itemId) ?? null
 }
 
+function finalInventoryItemIds(player: OpenDotaMatchPlayer | undefined): number[] {
+  if (!player) return []
+  return [
+    player.item_0,
+    player.item_1,
+    player.item_2,
+    player.item_3,
+    player.item_4,
+    player.item_5,
+    player.backpack_0,
+    player.backpack_1,
+    player.backpack_2,
+  ].filter((itemId) => itemId > 0)
+}
+
+function inferCompletionTimeFromComponents(
+  item: ResolvedItemConstant,
+  purchaseLog: OpenDotaPurchaseLog[],
+  finalItemIds: number[],
+): number | null {
+  if (item.components.length === 0 || !finalItemIds.includes(item.id)) return null
+
+  const usedIndexes = new Set<number>()
+  const componentTimes = item.components.map((componentKey) => {
+    const componentIndex = purchaseLog.findIndex((entry, index) =>
+      !usedIndexes.has(index) && sameItemKey(entry.key, componentKey),
+    )
+    if (componentIndex === -1) return null
+    usedIndexes.add(componentIndex)
+    return purchaseLog[componentIndex].time
+  })
+
+  if (componentTimes.some((time) => time === null)) return null
+  return Math.max(...componentTimes.filter((time): time is number => time !== null))
+}
+
 function resolveNeutralTier(minute: number): 1 | 2 | 3 | 4 | 5 {
   if (minute < 12) return 1
   if (minute < 22) return 2
@@ -207,13 +243,30 @@ export function compareItemTimings(
   heroId: number,
   purchaseLog: OpenDotaPurchaseLog[],
   itemConstants: ResolvedItemConstant[],
+  player?: OpenDotaMatchPlayer,
 ): CarryItemTimingComparison[] {
   const timings = CORE_ITEM_TIMINGS_BY_HERO[heroId] ?? DEFAULT_CORE_TIMINGS
   const hasPurchaseLog = purchaseLog.length > 0
+  const finalItemIds = finalInventoryItemIds(player)
 
   return Object.entries(timings).map(([itemKey, target]) => {
-    const purchase = purchaseLog.find((entry) => sameItemKey(entry.key, itemKey))
-    const userMinute = purchase ? round(purchase.time / 60) : null
+    const resolvedItem = resolveItemByKey(itemConstants, itemKey)
+    const resolvedItemKey = resolvedItem?.key ?? canonicalItemKey(itemKey)
+    const purchase = purchaseLog.find((entry) => sameItemKey(entry.key, resolvedItemKey))
+    const inferredCompletionTime = purchase || !resolvedItem
+      ? null
+      : inferCompletionTimeFromComponents(resolvedItem, purchaseLog, finalItemIds)
+    const completedMinute = purchase
+      ? round(purchase.time / 60)
+      : inferredCompletionTime === null
+        ? null
+        : round(inferredCompletionTime / 60)
+    const timingSource = purchase
+      ? 'purchase_log'
+      : inferredCompletionTime === null
+        ? 'unavailable'
+        : 'component_inference'
+    const userMinute = completedMinute
     const differenceMinutes = userMinute === null ? null : round(userMinute - target.optimalMinute)
     const status =
       !hasPurchaseLog
@@ -224,15 +277,14 @@ export function compareItemTimings(
             ? 'on_time'
             : 'late'
 
-    const resolvedItem = resolveItemByKey(itemConstants, itemKey)
-    const resolvedItemKey = resolvedItem?.key ?? canonicalItemKey(itemKey)
-
     return {
       itemKey: resolvedItemKey,
       itemName: target.label,
       iconUrl: resolvedItem?.iconUrl ?? itemIconUrl(resolvedItemKey),
       description: resolvedItem?.description ?? resolvedItem?.dname ?? target.label,
       userMinute,
+      completedMinute,
+      timingSource,
       proMinute: target.optimalMinute,
       differenceMinutes,
       status,

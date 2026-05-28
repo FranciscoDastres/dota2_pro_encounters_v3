@@ -66,6 +66,8 @@ export const carryItemTimingComparisonSchema = z.object({
   iconUrl: z.string(),
   description: z.string().nullable().default(null),
   userMinute: z.number().nullable(),
+  completedMinute: z.number().nullable().default(null),
+  timingSource: z.enum(['purchase_log', 'component_inference', 'unavailable']).default('unavailable'),
   proMinute: z.number(),
   differenceMinutes: z.number().nullable(),
   status: z.enum(['on_time', 'late', 'missing', 'snapshot']),

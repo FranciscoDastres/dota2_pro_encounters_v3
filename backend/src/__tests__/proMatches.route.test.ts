@@ -87,6 +87,18 @@ describe('GET /api/pro-matches/:accountId/:proAccountId', () => {
 
     expect(res.status).toBe(503)
     expect(res.body.error).toBe('Internal server error')
+    expect(res.headers['retry-after']).toBe('30')
+  })
+
+  it('returns 503 when the circuit breaker is open', async () => {
+    vi.mocked(openDotaService.getSharedMatches).mockRejectedValueOnce(
+      new Error('OpenDota service temporarily unavailable (circuit open)'),
+    )
+
+    const res = await request(app).get('/api/pro-matches/12345678/87278757')
+
+    expect(res.status).toBe(503)
+    expect(res.headers['retry-after']).toBe('30')
   })
 
   it('returns 429 when OpenDota rate-limits the request', async () => {

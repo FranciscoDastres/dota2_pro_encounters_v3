@@ -55,7 +55,7 @@ export function comparePositionPerformance(params: {
   const itemConstants = params.itemConstants ?? []
 
   const metrics = computeRoleMetrics(position, params.player, params.benchmarks, percentile, durationMinutes)
-  const itemTimings = compareItemTimings(params.player.hero_id, params.player.purchase_log, itemConstants)
+  const itemTimings = compareItemTimings(params.player.hero_id, params.player.purchase_log, itemConstants, params.player)
   const gpmMetric = metrics.find((metric) => metric.key === 'gold_per_min')
   const lh10Metric = metrics.find((metric) => metric.key === 'last_hits_per_10')
   const gpmRatio = gpmMetric?.ratio ?? 1

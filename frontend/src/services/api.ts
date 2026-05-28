@@ -22,7 +22,8 @@ async function fetchWithRetry(url: string, options?: RequestInit): Promise<Respo
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const response = await fetch(url, options)
-      if (!response.ok && isRetryableStatus(response.status) && attempt < MAX_RETRIES) {
+      const retryAfter = response.headers.get('Retry-After')
+      if (!response.ok && isRetryableStatus(response.status) && !retryAfter && attempt < MAX_RETRIES) {
         const delay = RETRY_BASE_MS * 2 ** (attempt - 1)
         await new Promise(resolve => setTimeout(resolve, delay))
         continue

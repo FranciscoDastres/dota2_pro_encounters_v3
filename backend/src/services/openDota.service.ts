@@ -14,6 +14,8 @@ const dotaconstantsClient = axios.create({
   timeout: 15_000,
 })
 
+const DOTACONSTANTS_VERSION = '10.8.0'
+
 // ─── Retry with exponential backoff ──────────────────────────────────────────
 
 const MAX_RETRIES = 2        // era 3 — con 2 el tiempo máximo baja de ~16s a ~2s
@@ -200,23 +202,24 @@ export async function getHeroes(): Promise<unknown> {
 }
 
 /**
- * Returns the public items table with names and icon paths.
- * Endpoint: GET /constants/items
+ * Returns the public items table with names, descriptions, and icon paths.
+ * Source: dotaconstants build artifacts, which use the same item keys as the
+ * Dota React CDN assets (for example `bfury`, not `battlefury`).
  */
 export async function getItems(): Promise<unknown> {
   const { data } = await withResilience('getItems', () =>
-    client.get('/constants/items'),
+    dotaconstantsClient.get(`/dotaconstants@${DOTACONSTANTS_VERSION}/build/items.json`),
   )
   return data
 }
 
 /**
  * Returns the public constants table for all abilities and talents.
- * Endpoint: GET /constants/abilities
+ * Source: dotaconstants build artifacts.
  */
 export async function getAbilityConstants(): Promise<unknown> {
   const { data } = await withResilience('getAbilityConstants', () =>
-    client.get('/constants/abilities'),
+    dotaconstantsClient.get(`/dotaconstants@${DOTACONSTANTS_VERSION}/build/abilities.json`),
   )
   return data
 }
@@ -227,7 +230,7 @@ export async function getAbilityConstants(): Promise<unknown> {
  */
 export async function getAbilityIds(): Promise<unknown> {
   const { data } = await withResilience('getAbilityIds', () =>
-    dotaconstantsClient.get('/dotaconstants@10.8.0/build/ability_ids.json'),
+    dotaconstantsClient.get(`/dotaconstants@${DOTACONSTANTS_VERSION}/build/ability_ids.json`),
   )
   return data
 }
@@ -238,7 +241,7 @@ export async function getAbilityIds(): Promise<unknown> {
  */
 export async function getHeroAbilityData(): Promise<unknown> {
   const { data } = await withResilience('getHeroAbilityData', () =>
-    dotaconstantsClient.get('/dotaconstants@10.8.0/build/hero_abilities.json'),
+    dotaconstantsClient.get(`/dotaconstants@${DOTACONSTANTS_VERSION}/build/hero_abilities.json`),
   )
   return data
 }

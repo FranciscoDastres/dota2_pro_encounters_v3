@@ -17,24 +17,25 @@ export const openDotaHeroSchema = z.object({
 export const openDotaHeroesSchema = z.array(openDotaHeroSchema)
 
 export const openDotaItemAbilitySchema = z.object({
-  title: z.string().optional(),
-  description: z.string().optional(),
+  title: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
 }).passthrough()
 
 export const openDotaItemAttributeSchema = z.object({
-  key: z.string().optional(),
-  display: z.string().optional(),
+  key: z.string().nullable().optional(),
+  display: z.string().nullable().optional(),
   value: z.unknown().optional(),
 }).passthrough()
 
 export const openDotaItemSchema = z.object({
   id: z.number(),
-  dname: z.string().optional(),
-  img: z.string().optional(),
-  abilities: z.array(openDotaItemAbilitySchema).optional(),
-  attrib: z.array(openDotaItemAttributeSchema).optional(),
-  notes: z.string().optional(),
-  lore: z.string().optional(),
+  dname: z.string().nullable().optional(),
+  img: z.string().nullable().optional(),
+  components: z.array(z.string()).nullable().optional(),
+  abilities: z.array(openDotaItemAbilitySchema).nullable().optional(),
+  attrib: z.array(openDotaItemAttributeSchema).nullable().optional(),
+  notes: z.string().nullable().optional(),
+  lore: z.string().nullable().optional(),
 }).passthrough()
 
 export const openDotaItemsSchema = z.record(z.string(), openDotaItemSchema)
@@ -59,6 +60,11 @@ export const openDotaDeathLogSchema = z.object({
   time: z.number(),
 }).passthrough()
 
+const parsedNumberWithFallback = z.preprocess(
+  (value) => value ?? undefined,
+  z.number().nonnegative().default(0),
+)
+
 export const openDotaMatchPlayerSchema = z.object({
   account_id: z.number().optional(),
   hero_id: z.number(),
@@ -72,8 +78,8 @@ export const openDotaMatchPlayerSchema = z.object({
   xp_per_min: z.number(),
   last_hits: z.number(),
   net_worth: z.number().optional(),
-  hero_damage: z.number(),
-  tower_damage: z.number(),
+  hero_damage: parsedNumberWithFallback,
+  tower_damage: parsedNumberWithFallback,
   obs_placed: z.number().optional().default(0),
   sen_placed: z.number().optional().default(0),
   ability_upgrades_arr: z.array(z.number()).default([]),

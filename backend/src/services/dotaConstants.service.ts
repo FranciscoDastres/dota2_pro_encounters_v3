@@ -28,8 +28,21 @@ let abilityIdsCache: Record<string, string> | null = null
 let abilityIdsPromise: Promise<Record<string, string>> | null = null
 let heroAbilityDataCache: Record<string, HeroAbilityMetadata> | null = null
 let heroAbilityDataPromise: Promise<Record<string, HeroAbilityMetadata>> | null = null
+let itemConstantsCache: ResolvedItemConstant[] | null = null
+let itemConstantsPromise: Promise<ResolvedItemConstant[]> | null = null
 
-function cleanItemText(value: string | undefined): string | null {
+export function clearDotaConstantsCaches(): void {
+  abilityConstantsCache = null
+  abilityConstantsPromise = null
+  abilityIdsCache = null
+  abilityIdsPromise = null
+  heroAbilityDataCache = null
+  heroAbilityDataPromise = null
+  itemConstantsCache = null
+  itemConstantsPromise = null
+}
+
+function cleanItemText(value: string | null | undefined): string | null {
   const cleaned = value
     ?.replace(/<[^>]*>/g, '')
     .replace(/\s+/g, ' ')
@@ -154,12 +167,27 @@ export async function loadHeroAbilityData(): Promise<Record<string, HeroAbilityM
 }
 
 export async function loadItemConstants(): Promise<ResolvedItemConstant[]> {
-  const itemConstants = openDotaItemsSchema.parse(await getItems())
-  return Object.entries(itemConstants).map(([key, value]) => ({
-    id: value.id,
-    key,
-    dname: value.dname?.trim() || titleCaseFromKey(key),
-    iconUrl: toCdnImageUrl(value.img) ?? itemIconUrl(key),
-    description: buildItemDescription(value),
-  }))
+  if (itemConstantsCache) return itemConstantsCache
+  if (!itemConstantsPromise) {
+    itemConstantsPromise = getItems()
+      .then((payload) => {
+        const itemConstants = openDotaItemsSchema.parse(payload)
+        const resolved = Object.entries(itemConstants).map(([key, value]) => ({
+          id: value.id,
+          key,
+          dname: value.dname?.trim() || titleCaseFromKey(key),
+          iconUrl: toCdnImageUrl(value.img) ?? itemIconUrl(key),
+          description: buildItemDescription(value),
+          components: value.components ?? [],
+        }))
+        itemConstantsCache = resolved
+        itemConstantsPromise = null
+        return resolved
+      })
+      .catch((err) => {
+        itemConstantsPromise = null
+        throw err
+      })
+  }
+  return itemConstantsPromise
 }

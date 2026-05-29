@@ -7,6 +7,7 @@ const mockGetAbilityIds = vi.fn()
 const mockGetHeroes = vi.fn()
 const mockGetHeroAbilityData = vi.fn()
 const mockGetItems = vi.fn()
+const mockQueueMatchParseRequest = vi.fn()
 
 vi.mock('../services/openDota.service', () => ({
   getMatchDetails: mockGetMatchDetails,
@@ -16,6 +17,7 @@ vi.mock('../services/openDota.service', () => ({
   getHeroes: mockGetHeroes,
   getHeroAbilityData: mockGetHeroAbilityData,
   getItems: mockGetItems,
+  queueMatchParseRequest: mockQueueMatchParseRequest,
 }))
 
 const { getCarryComparison } = await import('../services/carryComparison.service')
@@ -30,6 +32,8 @@ describe('getCarryComparison', () => {
     mockGetHeroes.mockReset()
     mockGetHeroAbilityData.mockReset()
     mockGetItems.mockReset()
+    mockQueueMatchParseRequest.mockReset()
+    mockQueueMatchParseRequest.mockReturnValue('requested')
     clearDotaConstantsCaches()
   })
 
@@ -78,6 +82,11 @@ describe('getCarryComparison', () => {
     expect(mockGetHeroBenchmarks).toHaveBeenCalledWith(41)
     expect(result.match_id).toBe(9001)
     expect(result.hero_id).toBe(41)
+    expect(result.match_parse).toEqual({
+      status: 'not_needed',
+      purchase_log_available: true,
+    })
+    expect(mockQueueMatchParseRequest).not.toHaveBeenCalled()
   })
 
   it('handles partially parsed OpenDota matches without damage or progression logs', async () => {
@@ -133,6 +142,11 @@ describe('getCarryComparison', () => {
     expect(result.raw_user.hero_damage).toBe(0)
     expect(result.raw_user.tower_damage).toBe(0)
     expect(result.raw_user.purchase_log).toEqual([])
+    expect(result.match_parse).toEqual({
+      status: 'requested',
+      purchase_log_available: false,
+    })
+    expect(mockQueueMatchParseRequest).toHaveBeenCalledWith(9002)
     expect(result.progression.skill_build).toEqual([])
     expect(result.item_timings.every((timing) => timing.status === 'snapshot')).toBe(true)
     expect(result.purchase_trail).toEqual([

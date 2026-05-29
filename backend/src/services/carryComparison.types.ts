@@ -6,7 +6,8 @@ import type {
 export type ComparisonPosition = 1 | 2 | 3 | 4 | 5
 export type BenchmarkPercentile = 95 | 99
 export type TimingStatus = 'on_time' | 'late' | 'missing' | 'snapshot'
-export type ItemTimingSource = 'purchase_log' | 'component_inference' | 'unavailable'
+export type ItemTimingSource = 'purchase_log' | 'unavailable'
+export type MatchParseRequestStatus = 'not_needed' | 'requested' | 'already_requested'
 
 export interface CoreItemTimingTarget {
   label: string
@@ -60,6 +61,16 @@ export interface CarryPurchaseTrailEntry {
   iconUrl: string
   slotLabel: string | null
   description: string | null
+}
+
+export interface CarryCoreItemEntry {
+  itemKey: string
+  itemName: string
+  iconUrl: string
+  description: string | null
+  slotLabel: string
+  completedMinute: number | null
+  timingSource: ItemTimingSource
 }
 
 export interface CarrySkillBuildEntry {
@@ -121,11 +132,16 @@ export interface CarryComparisonResponse {
   }
   metrics: CarryComparisonMetric[]
   item_timings: CarryItemTimingComparison[]
+  core_items: CarryCoreItemEntry[]
   purchase_trail: CarryPurchaseTrailEntry[]
   progression: {
     skill_build: CarrySkillBuildEntry[]
     talents: CarryTalentChoice[]
     neutral_items: CarryNeutralItemHistoryEntry[]
+  }
+  match_parse: {
+    status: MatchParseRequestStatus
+    purchase_log_available: boolean
   }
   hero_name: string | null
   raw_user: {

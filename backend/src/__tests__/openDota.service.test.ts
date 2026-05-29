@@ -3,17 +3,23 @@ import type { OpenDotaProEncounter } from '../types'
 
 // mockGet must be declared before vi.mock because vi.mock is hoisted
 const mockGet = vi.fn()
+const mockPost = vi.fn()
 
 vi.mock('axios', () => ({
   default: {
-    create: vi.fn(() => ({ get: mockGet })),
+    create: vi.fn(() => ({ get: mockGet, post: mockPost })),
     isAxiosError: vi.fn((err) => Boolean((err as { isAxiosError?: boolean }).isAxiosError)),
   },
   AxiosError: class AxiosError extends Error {},
 }))
 
 // Import AFTER mock setup so the service picks up the mocked axios.create
-const { getPlayerPros } = await import('../services/openDota.service')
+const {
+  clearQueuedMatchParseRequests,
+  getPlayerPros,
+  queueMatchParseRequest,
+  requestMatchParse,
+} = await import('../services/openDota.service')
 
 const mockPros: OpenDotaProEncounter[] = [
   {
@@ -32,6 +38,8 @@ const mockPros: OpenDotaProEncounter[] = [
 describe('openDota.service', () => {
   beforeEach(() => {
     mockGet.mockReset()
+    mockPost.mockReset()
+    clearQueuedMatchParseRequests()
   })
 
   describe('getPlayerPros', () => {
@@ -63,6 +71,27 @@ describe('openDota.service', () => {
       mockGet.mockRejectedValueOnce(new Error('Network error'))
 
       await expect(getPlayerPros(12345)).rejects.toThrow('Network error')
+    })
+  })
+
+  describe('requestMatchParse', () => {
+    it('calls the OpenDota parse request endpoint', async () => {
+      mockPost.mockResolvedValueOnce({ data: { job: { jobId: 123 } } })
+
+      await requestMatchParse(9001)
+
+      expect(mockPost).toHaveBeenCalledWith('/request/9001')
+    })
+
+    it('queues each match parse request once per process', async () => {
+      mockPost.mockResolvedValue({ data: { job: { jobId: 123 } } })
+
+      const first = queueMatchParseRequest(9002)
+      const second = queueMatchParseRequest(9002)
+
+      expect(first).toBe('requested')
+      expect(second).toBe('already_requested')
+      expect(mockPost).toHaveBeenCalledTimes(1)
     })
   })
 })

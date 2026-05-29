@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { proEncountersParamsSchema, proMatchesParamsSchema } from '../schemas/params.schema'
-import { openDotaItemsSchema } from '../services/carryComparison.schemas'
+import { openDotaItemsSchema, openDotaMatchSchema } from '../services/carryComparison.schemas'
 
 describe('proEncountersParamsSchema', () => {
   it('accepts a valid numeric account ID', () => {
@@ -112,5 +112,28 @@ describe('openDotaItemsSchema', () => {
     })
 
     expect(result.tidehunter_fish.components).toBeNull()
+  })
+})
+
+describe('openDotaMatchSchema', () => {
+  it('accepts neutral item enhancement events without item_neutral', () => {
+    const result = openDotaMatchSchema.parse({
+      match_id: 8828413068,
+      duration: 3000,
+      players: [
+        {
+          account_id: 1,
+          hero_id: 72,
+          gold_per_min: 700,
+          xp_per_min: 800,
+          last_hits: 300,
+          neutral_item_history: [
+            { time: 1047, item_neutral_enhancement: 'enhancement_alert' },
+          ],
+        },
+      ],
+    })
+
+    expect(result.players[0].neutral_item_history[0].item_neutral).toBe('')
   })
 })

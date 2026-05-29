@@ -15,6 +15,7 @@ const dotaconstantsClient = axios.create({
 })
 
 const DOTACONSTANTS_VERSION = '10.8.0'
+const parseRequests = new Map<number, 'requested' | 'failed'>()
 
 // ─── Retry with exponential backoff ──────────────────────────────────────────
 
@@ -175,6 +176,39 @@ export async function getMatchDetails(matchId: number): Promise<unknown> {
     client.get(`/matches/${matchId}`),
   )
   return data
+}
+
+/**
+ * Asks OpenDota to parse a match replay so parsed fields such as purchase_log
+ * may become available on a later /matches/{match_id} request.
+ * Endpoint: POST /request/{match_id}
+ */
+export async function requestMatchParse(matchId: number): Promise<unknown> {
+  const { data } = await withResilience('requestMatchParse', () =>
+    client.post(`/request/${matchId}`),
+  )
+  return data
+}
+
+export function queueMatchParseRequest(matchId: number): 'requested' | 'already_requested' {
+  if (parseRequests.has(matchId)) return 'already_requested'
+
+  parseRequests.set(matchId, 'requested')
+  void requestMatchParse(matchId)
+    .catch((err) => {
+      parseRequests.set(matchId, 'failed')
+      logger.warn('[requestMatchParse] failed', {
+        matchId,
+        status: err instanceof AxiosError ? err.response?.status : undefined,
+        message: err instanceof Error ? err.message : 'Unknown error',
+      })
+    })
+
+  return 'requested'
+}
+
+export function clearQueuedMatchParseRequests(): void {
+  parseRequests.clear()
 }
 
 /**

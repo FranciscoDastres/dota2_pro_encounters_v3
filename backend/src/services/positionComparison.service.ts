@@ -1,4 +1,4 @@
-import { getHeroBenchmarks, getHeroes, getMatchDetails } from './openDota.service'
+import { getHeroBenchmarks, getHeroes, getMatchDetails, queueMatchParseRequest } from './openDota.service'
 import {
   openDotaBenchmarksSchema,
   openDotaHeroesSchema,
@@ -13,6 +13,7 @@ import {
 } from './dotaConstants.service'
 import {
   buildNeutralItems,
+  buildCoreItems,
   buildPurchaseTrail,
   buildSkillProgression,
   buildTalentChoices,
@@ -24,6 +25,7 @@ import type {
   CarryComparisonResponse,
   CarrySkillBuildEntry,
   HeroAbilityMetadata,
+  MatchParseRequestStatus,
   ResolvedAbilityConstant,
   ResolvedItemConstant,
 } from './carryComparison.types'
@@ -36,6 +38,45 @@ import type {
 export * from './carryComparison.schemas'
 export type * from './carryComparison.types'
 
+const PARSE_REFETCH_ATTEMPTS = process.env.NODE_ENV === 'test' ? 0 : 3
+const PARSE_REFETCH_DELAY_MS = 4_000
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function findRequestedPlayer(match: OpenDotaMatch, accountId: number, heroId: number): OpenDotaMatchPlayer {
+  const player = match.players.find((entry) => entry.account_id === accountId)
+
+  if (!player) {
+    throw new Error('The account was not found in the parsed OpenDota match payload.')
+  }
+
+  if (player.hero_id !== heroId) {
+    throw new Error('The requested heroId does not match the hero used in the selected match.')
+  }
+
+  return player
+}
+
+async function refetchMatchUntilPurchaseLog(params: {
+  matchId: number
+  accountId: number
+  heroId: number
+}): Promise<{ match: OpenDotaMatch; player: OpenDotaMatchPlayer } | null> {
+  for (let attempt = 1; attempt <= PARSE_REFETCH_ATTEMPTS; attempt++) {
+    await wait(PARSE_REFETCH_DELAY_MS)
+
+    const match = openDotaMatchSchema.parse(await getMatchDetails(params.matchId))
+    const player = findRequestedPlayer(match, params.accountId, params.heroId)
+    if (player.purchase_log.length > 0) {
+      return { match, player }
+    }
+  }
+
+  return null
+}
+
 export function comparePositionPerformance(params: {
   accountId: number
   match: OpenDotaMatch
@@ -47,6 +88,7 @@ export function comparePositionPerformance(params: {
   abilityConstants?: ResolvedAbilityConstant[]
   itemConstants?: ResolvedItemConstant[]
   percentile?: BenchmarkPercentile
+  matchParseStatus?: MatchParseRequestStatus
 }): CarryComparisonResponse {
   const percentile = params.percentile ?? 95
   const durationMinutes = params.match.duration / 60
@@ -55,7 +97,7 @@ export function comparePositionPerformance(params: {
   const itemConstants = params.itemConstants ?? []
 
   const metrics = computeRoleMetrics(position, params.player, params.benchmarks, percentile, durationMinutes)
-  const itemTimings = compareItemTimings(params.player.hero_id, params.player.purchase_log, itemConstants, params.player)
+  const itemTimings = compareItemTimings(params.player.hero_id, params.player.purchase_log, itemConstants)
   const gpmMetric = metrics.find((metric) => metric.key === 'gold_per_min')
   const lh10Metric = metrics.find((metric) => metric.key === 'last_hits_per_10')
   const gpmRatio = gpmMetric?.ratio ?? 1
@@ -89,6 +131,7 @@ export function comparePositionPerformance(params: {
     },
     metrics,
     item_timings: itemTimings,
+    core_items: buildCoreItems(params.player, itemConstants),
     purchase_trail: buildPurchaseTrail(params.player, itemConstants),
     progression: {
       skill_build: params.skillBuild ?? [],
@@ -99,6 +142,10 @@ export function comparePositionPerformance(params: {
         params.abilityConstants ?? [],
       ),
       neutral_items: buildNeutralItems(params.player.neutral_item_history),
+    },
+    match_parse: {
+      status: params.matchParseStatus ?? 'not_needed',
+      purchase_log_available: params.player.purchase_log.length > 0,
     },
     hero_name: params.heroName ?? null,
     raw_user: {
@@ -127,20 +174,28 @@ export async function getPositionComparison(params: {
   percentile?: BenchmarkPercentile
 }): Promise<CarryComparisonResponse> {
   const percentile = params.percentile ?? 95
-  const match = openDotaMatchSchema.parse(await getMatchDetails(params.matchId))
+  let match = openDotaMatchSchema.parse(await getMatchDetails(params.matchId))
 
   if (match.match_id !== params.matchId) {
     throw new Error('OpenDota match payload did not match the requested matchId.')
   }
 
-  const player = match.players.find((entry) => entry.account_id === params.accountId)
+  let player = findRequestedPlayer(match, params.accountId, params.heroId)
 
-  if (!player) {
-    throw new Error('The account was not found in the parsed OpenDota match payload.')
-  }
+  const matchParseStatus = player.purchase_log.length > 0
+    ? 'not_needed'
+    : queueMatchParseRequest(params.matchId)
 
-  if (player.hero_id !== params.heroId) {
-    throw new Error('The requested heroId does not match the hero used in the selected match.')
+  if (player.purchase_log.length === 0) {
+    const parsed = await refetchMatchUntilPurchaseLog({
+      matchId: params.matchId,
+      accountId: params.accountId,
+      heroId: params.heroId,
+    })
+    if (parsed) {
+      match = parsed.match
+      player = parsed.player
+    }
   }
 
   const benchmarks = openDotaBenchmarksSchema.parse(await getHeroBenchmarks(params.heroId))
@@ -163,5 +218,6 @@ export async function getPositionComparison(params: {
     abilityConstants,
     itemConstants,
     percentile,
+    matchParseStatus,
   })
 }

@@ -67,7 +67,7 @@ export const carryItemTimingComparisonSchema = z.object({
   description: z.string().nullable().default(null),
   userMinute: z.number().nullable(),
   completedMinute: z.number().nullable().default(null),
-  timingSource: z.enum(['purchase_log', 'component_inference', 'unavailable']).default('unavailable'),
+  timingSource: z.enum(['purchase_log', 'unavailable']).default('unavailable'),
   proMinute: z.number(),
   differenceMinutes: z.number().nullable(),
   status: z.enum(['on_time', 'late', 'missing', 'snapshot']),
@@ -80,6 +80,16 @@ export const carryPurchaseTrailEntrySchema = z.object({
   iconUrl: z.string(),
   slotLabel: z.string().nullable(),
   description: z.string().nullable(),
+})
+
+export const carryCoreItemEntrySchema = z.object({
+  itemKey: z.string(),
+  itemName: z.string(),
+  iconUrl: z.string(),
+  description: z.string().nullable(),
+  slotLabel: z.string(),
+  completedMinute: z.number().nullable(),
+  timingSource: z.enum(['purchase_log', 'unavailable']),
 })
 
 export const carrySkillBuildEntrySchema = z.object({
@@ -141,11 +151,19 @@ export const carryComparisonResponseSchema = z.object({
   }),
   metrics: z.array(carryComparisonMetricSchema),
   item_timings: z.array(carryItemTimingComparisonSchema),
+  core_items: z.array(carryCoreItemEntrySchema).default([]),
   purchase_trail: z.array(carryPurchaseTrailEntrySchema),
   progression: z.object({
     skill_build: z.array(carrySkillBuildEntrySchema),
     talents: z.array(carryTalentChoiceSchema),
     neutral_items: z.array(carryNeutralItemHistoryEntrySchema),
+  }),
+  match_parse: z.object({
+    status: z.enum(['not_needed', 'requested', 'already_requested']),
+    purchase_log_available: z.boolean(),
+  }).default({
+    status: 'not_needed',
+    purchase_log_available: true,
   }),
   hero_name: z.string().nullable(),
   raw_user: z.object({

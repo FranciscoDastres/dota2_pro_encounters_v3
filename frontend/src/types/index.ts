@@ -70,7 +70,7 @@ export interface CarryItemTimingComparison {
   description: string | null
   userMinute: number | null
   completedMinute: number | null
-  timingSource: 'purchase_log' | 'component_inference' | 'unavailable'
+  timingSource: 'purchase_log' | 'unavailable'
   proMinute: number
   differenceMinutes: number | null
   status: 'on_time' | 'late' | 'missing' | 'snapshot'
@@ -83,6 +83,16 @@ export interface CarryPurchaseTrailEntry {
   iconUrl: string
   slotLabel: string | null
   description: string | null
+}
+
+export interface CarryCoreItemEntry {
+  itemKey: string
+  itemName: string
+  iconUrl: string
+  description: string | null
+  slotLabel: string
+  completedMinute: number | null
+  timingSource: 'purchase_log' | 'unavailable'
 }
 
 export interface CarrySkillBuildEntry {
@@ -144,11 +154,16 @@ export interface CarryComparisonResponse {
   }
   metrics: CarryComparisonMetric[]
   item_timings: CarryItemTimingComparison[]
+  core_items: CarryCoreItemEntry[]
   purchase_trail: CarryPurchaseTrailEntry[]
   progression: {
     skill_build: CarrySkillBuildEntry[]
     talents: CarryTalentChoice[]
     neutral_items: CarryNeutralItemHistoryEntry[]
+  }
+  match_parse: {
+    status: 'not_needed' | 'requested' | 'already_requested'
+    purchase_log_available: boolean
   }
   hero_name: string | null
   raw_user: {

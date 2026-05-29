@@ -39,12 +39,8 @@ function itemCompletionMetaLines(timing: CarryItemTimingComparison): string[] {
   const completedMinute = timing.completedMinute ?? timing.userMinute
   const completionLine = completedMinute === null
     ? 'Timing de completado no disponible'
-    : timing.timingSource === 'component_inference'
-      ? `Completado estimado: ${formatMinutes(completedMinute)}`
-      : `Completado: ${formatMinutes(completedMinute)}`
-  const sourceLine = timing.timingSource === 'component_inference'
-    ? 'Fuente: inferido por ultimo componente registrado'
-    : timing.timingSource === 'purchase_log'
+    : `Completado: ${formatMinutes(completedMinute)}`
+  const sourceLine = timing.timingSource === 'purchase_log'
       ? 'Fuente: OpenDota purchase_log'
       : 'Fuente: inventario final sin timing'
 

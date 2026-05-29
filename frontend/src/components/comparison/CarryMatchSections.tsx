@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type {
   CarryComparisonMetric,
   CarryComparisonResponse,
+  CarryCoreItemEntry,
   CarryItemTimingComparison,
   CarryNeutralItemHistoryEntry,
   CarryPurchaseTrailEntry,
@@ -37,19 +38,27 @@ function itemCompletionMetaLines(timing: CarryItemTimingComparison): string[] {
   const completedMinute = timing.completedMinute ?? timing.userMinute
   const completionLine = completedMinute === null
     ? 'Timing de completado no disponible'
-    : timing.timingSource === 'component_inference'
-      ? `Completado estimado: ${formatTime(completedMinute)}`
-      : `Completado: ${formatTime(completedMinute)}`
-  const sourceLine = timing.timingSource === 'component_inference'
-    ? 'Fuente: inferido por ultimo componente registrado'
-    : timing.timingSource === 'purchase_log'
-      ? 'Fuente: OpenDota purchase_log'
-      : 'Fuente: inventario final sin timing'
+    : `Completado: ${formatTime(completedMinute)}`
+  const sourceLine = timing.timingSource === 'purchase_log'
+    ? 'Fuente: OpenDota purchase_log'
+    : 'Fuente: inventario final sin timing'
 
   return [
     completionLine,
     sourceLine,
     `Objetivo pro: ${timing.proMinute.toFixed(1)}m`,
+  ]
+}
+
+function coreItemMetaLines(item: CarryCoreItemEntry): string[] {
+  return [
+    item.completedMinute === null
+      ? 'Timing de completado no disponible'
+      : `Completado: ${formatTime(item.completedMinute)}`,
+    item.timingSource === 'purchase_log'
+      ? 'Fuente: OpenDota purchase_log'
+      : 'Fuente: compra exacta no encontrada',
+    `Inventario: ${item.slotLabel}`,
   ]
 }
 
@@ -158,83 +167,130 @@ export function MatchBenchmarkHeader({
 }
 
 export function MatchSnapshotSection({ data, kda }: { data: CarryComparisonResponse; kda: string }) {
-  const hasTimingSnapshotOnly = data.item_timings.every((timing) => timing.status === 'snapshot')
-  const gameSummary = [
-    { label: 'Kills', value: data.raw_user.kills, tone: 'text-emerald-200' },
-    { label: 'Deaths', value: data.raw_user.deaths, tone: 'text-rose-200' },
-    { label: 'Assists', value: data.raw_user.assists, tone: 'text-cyan-200' },
-    { label: 'KDA', value: kda, tone: 'text-amber-200' },
-    { label: 'GPM', value: data.raw_user.gold_per_min, tone: 'text-white' },
-    { label: 'XPM', value: data.raw_user.xp_per_min, tone: 'text-white' },
-    { label: 'LH', value: data.raw_user.last_hits, tone: 'text-white' },
-    { label: 'NW', value: data.raw_user.net_worth === null ? '—' : formatNumber(data.raw_user.net_worth), tone: 'text-white' },
+  const coreItems = data.core_items
+  const timedCoreItems = coreItems.filter((item) => item.completedMinute !== null).length
+  const coreItemTotal = Math.max(coreItems.length, data.item_timings.length)
+  const stats = [
+    { group: 'Combat', label: 'Kills', value: data.raw_user.kills, tone: 'text-emerald-200' },
+    { group: 'Combat', label: 'Deaths', value: data.raw_user.deaths, tone: 'text-rose-200' },
+    { group: 'Combat', label: 'Assists', value: data.raw_user.assists, tone: 'text-cyan-200' },
+    { group: 'Combat', label: 'KDA', value: kda, tone: 'text-amber-200' },
+    { group: 'Economy', label: 'GPM', value: data.raw_user.gold_per_min, tone: 'text-emerald-100' },
+    { group: 'Economy', label: 'XPM', value: data.raw_user.xp_per_min, tone: 'text-cyan-100' },
+    { group: 'Economy', label: 'LH', value: data.raw_user.last_hits, tone: 'text-white' },
+    { group: 'Economy', label: 'NW', value: data.raw_user.net_worth === null ? '—' : formatNumber(data.raw_user.net_worth), tone: 'text-white' },
   ]
 
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
+    <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 sm:p-5">
       <SectionTitle
         icon={<BenchmarkIcon />}
         title="Match Snapshot"
         subtitle="Quick read of the match state and your purchase trail"
       />
+      {!data.match_parse.purchase_log_available && data.match_parse.status !== 'not_needed' && (
+        <div className="mb-3 rounded-md border border-cyan-300/20 bg-cyan-400/5 px-3 py-2 text-xs text-cyan-100">
+          Parse requested from OpenDota. Exact item completion timings may appear after the match finishes parsing.
+        </div>
+      )}
 
-      <div className="grid gap-3 lg:grid-cols-[1fr_360px]">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {gameSummary.map((stat) => (
-            <div key={stat.label} className="rounded-md border border-white/10 bg-black/20 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">{stat.label}</p>
-              <p className={`mt-1 text-sm font-semibold ${stat.tone}`}>{stat.value}</p>
+      <div className="grid gap-3">
+        <div className="rounded-md border border-white/10 bg-black/20 p-2.5">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 items-baseline gap-2">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Match Stats</p>
+              <p className="text-[11px] text-slate-400">Combat and economy snapshot</p>
             </div>
-          ))}
+            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-300">
+              {stats.length} stats
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
+            {stats.map((stat, index) => (
+              <div key={`${stat.group}-${stat.label}`} className="min-h-[54px] rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">{stat.label}</p>
+                  {(index === 0 || index === 4) && (
+                    <span className="hidden rounded bg-white/[0.04] px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-slate-500 sm:inline">
+                      {stat.group}
+                    </span>
+                  )}
+                </div>
+                <p className={`mt-1 truncate text-base font-semibold leading-5 ${stat.tone}`}>{stat.value}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="rounded-md border border-white/10 bg-black/20 p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-              {hasTimingSnapshotOnly ? 'Core Items' : 'Core Timings'}
-            </p>
-            {!hasTimingSnapshotOnly && (
-              <span className="text-[11px] text-slate-400">vs. pro target</span>
-            )}
+        <div className="rounded-md border border-cyan-300/15 bg-[rgba(8,17,27,0.72)] p-2.5">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 items-baseline gap-2">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Core Items</p>
+              <p className="text-[11px] text-slate-400">Final inventory timing</p>
+            </div>
+            <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-100">
+              {coreItemTotal === 0 ? 'No items' : `${timedCoreItems}/${coreItemTotal} timed`}
+            </span>
           </div>
-          <div className="flex flex-wrap gap-2 pb-1">
-            {data.item_timings.map((timing, index) => (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {coreItems.length > 0 ? coreItems.map((item, index) => (
+              <ItemHoverCard
+                key={`${item.slotLabel}-${item.itemKey}`}
+                itemName={item.itemName}
+                description={item.description}
+                metaLines={coreItemMetaLines(item)}
+                align={index % 3 === 2 || index === coreItems.length - 1 ? 'right' : 'left'}
+                className="min-w-0"
+              >
+                <div
+                className={[
+                  'grid min-h-[62px] grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-2 rounded-md border px-2.5 py-2 transition-colors',
+                  item.completedMinute === null
+                    ? 'border-cyan-300/20 bg-cyan-400/5 hover:border-cyan-300/40'
+                    : 'border-emerald-300/20 bg-emerald-400/5 hover:border-emerald-300/40',
+                ].join(' ')}
+              >
+                  <IconFrame
+                    src={item.iconUrl}
+                    alt={item.itemName}
+                    fallback={item.itemName.slice(0, 2).toUpperCase()}
+                    fallbackSrcs={itemIconFallbackUrls(item.itemKey)}
+                    className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-black/30"
+                    imgClassName="h-full w-full object-contain p-0.5"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium text-white">{item.itemName}</p>
+                    <p className={item.completedMinute === null ? 'mt-0.5 text-[11px] text-slate-400' : 'mt-0.5 text-[11px] text-emerald-200'}>
+                      {item.completedMinute === null ? 'No exact timing' : formatTime(item.completedMinute)}
+                    </p>
+                  </div>
+                  <span className="rounded bg-black/35 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.12em] text-slate-400">
+                    {item.slotLabel.replace('Slot ', 'S')}
+                  </span>
+                </div>
+              </ItemHoverCard>
+            )) : data.item_timings.map((timing, index) => (
               <ItemHoverCard
                 key={timing.itemKey}
                 itemName={timing.itemName}
                 description={timing.description}
                 metaLines={itemCompletionMetaLines(timing)}
-                align={index === data.item_timings.length - 1 ? 'right' : 'left'}
-                className="min-w-[92px] flex-1 sm:flex-none"
+                align={index % 3 === 2 || index === data.item_timings.length - 1 ? 'right' : 'left'}
+                className="min-w-0"
               >
-                <div
-                className={[
-                  'h-full rounded-md border px-2 py-2 transition-colors',
-                  timing.status === 'snapshot'
-                    ? 'border-cyan-300/20 bg-cyan-400/5 hover:border-cyan-300/40'
-                    : timing.status === 'on_time'
-                      ? 'border-emerald-300/20 bg-emerald-400/5 hover:border-emerald-300/40'
-                      : timing.status === 'late'
-                        ? 'border-amber-300/20 bg-amber-400/5 hover:border-amber-300/40'
-                        : 'border-rose-300/20 bg-rose-400/5 hover:border-rose-300/40',
-                ].join(' ')}
-              >
-                <div className="flex items-center gap-2">
+                <div className="grid min-h-[62px] grid-cols-[38px_minmax(0,1fr)] items-center gap-2 rounded-md border border-cyan-300/20 bg-cyan-400/5 px-2.5 py-2 transition-colors hover:border-cyan-300/40">
                   <IconFrame
                     src={timing.iconUrl}
                     alt={timing.itemName}
                     fallback={timing.itemName.slice(0, 2).toUpperCase()}
                     fallbackSrcs={itemIconFallbackUrls(timing.itemKey)}
-                    className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-black/30"
+                    className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-black/30"
                     imgClassName="h-full w-full object-contain p-0.5"
                   />
-                </div>
-                <p className="mt-2 truncate text-xs font-medium text-white">{timing.itemName}</p>
-                {timing.status !== 'snapshot' && (
-                  <p className="mt-1 text-[11px] text-slate-400">
-                    You {formatTime(timing.completedMinute ?? timing.userMinute)} · Pro {timing.proMinute.toFixed(1)}m
-                  </p>
-                )}
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium text-white">{timing.itemName}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-400">No exact timing</p>
+                  </div>
                 </div>
               </ItemHoverCard>
             ))}
@@ -246,16 +302,24 @@ export function MatchSnapshotSection({ data, kda }: { data: CarryComparisonRespo
 }
 
 export function PurchaseTrailSection({ purchaseTrail }: { purchaseTrail: CarryPurchaseTrailEntry[] }) {
-  return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
-      <SectionTitle
-        icon={<BootIcon />}
-        title="Purchase Trail"
-        subtitle="The item path from your actual match log or inventory"
-      />
+  const timedPurchases = purchaseTrail.filter((entry) => entry.timeMinute !== null).length
 
-      <div className="overflow-x-auto pb-1">
-        <div className="flex min-w-max gap-2">
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 sm:p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <SectionTitle
+          icon={<BootIcon />}
+          title="Purchase Trail"
+          subtitle="The item path from your actual match log or inventory"
+          className="mb-0"
+        />
+        <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-100">
+          {purchaseTrail.length === 0 ? 'No items' : `${timedPurchases}/${purchaseTrail.length} timed`}
+        </span>
+      </div>
+
+      {purchaseTrail.length > 0 ? (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {purchaseTrail.map((entry, index) => (
             <ItemHoverCard
               key={`${entry.timeMinute ?? 'snapshot'}-${entry.slotLabel ?? entry.itemKey}-${entry.itemKey}`}
@@ -267,28 +331,37 @@ export function PurchaseTrailSection({ purchaseTrail }: { purchaseTrail: CarryPu
                   : `Adquirido: ${formatTime(entry.timeMinute)}`,
                 entry.slotLabel ? `Inventario: ${entry.slotLabel}` : '',
               ].filter(Boolean)}
-              align={index > purchaseTrail.length - 3 ? 'right' : 'left'}
-              className="w-16 flex-shrink-0"
+              align={index % 4 === 3 || index === purchaseTrail.length - 1 ? 'right' : 'left'}
+              className="min-w-0"
             >
-              <div className="flex w-full flex-col items-center gap-1 rounded-md px-1 py-1 transition-colors hover:bg-white/[0.04]">
+              <div className="grid min-h-[62px] grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2.5 py-2 transition-colors hover:border-cyan-300/30 hover:bg-cyan-400/5">
                 <IconFrame
                   src={entry.iconUrl}
                   alt={entry.itemName}
                   fallback={entry.itemName.slice(0, 2).toUpperCase()}
                   fallbackSrcs={itemIconFallbackUrls(entry.itemKey)}
-                  className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-black/30"
+                  className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-black/30"
                   imgClassName="h-full w-full object-contain p-0.5"
                 />
-                <span className="max-w-full truncate text-[10px] text-slate-300">{entry.itemName}</span>
-                <span className="text-[10px] text-cyan-200">
-                  {entry.slotLabel ?? formatTime(entry.timeMinute)}
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-medium text-white">{entry.itemName}</p>
+                  <p className={entry.timeMinute === null ? 'mt-0.5 text-[11px] text-slate-400' : 'mt-0.5 text-[11px] text-cyan-200'}>
+                    {entry.timeMinute === null ? (entry.slotLabel ?? 'No exact timing') : formatTime(entry.timeMinute)}
+                  </p>
+                </div>
+                <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.12em] text-slate-400">
+                  {entry.slotLabel ? entry.slotLabel.replace('Slot ', 'S').replace('Backpack ', 'B') : index + 1}
                 </span>
                 <span className="sr-only">{entry.description ?? entry.itemName}</span>
               </div>
             </ItemHoverCard>
           ))}
         </div>
-      </div>
+      ) : (
+        <div className="rounded-md border border-white/10 bg-black/20 px-3 py-4 text-sm text-slate-400">
+          No purchase trail data available for this match.
+        </div>
+      )}
     </div>
   )
 }
@@ -549,9 +622,19 @@ export function MetricBreakdownSection({ metrics }: { metrics: CarryComparisonMe
   )
 }
 
-function SectionTitle({ icon, title, subtitle }: { icon: ReactNode; title: string; subtitle: string }) {
+function SectionTitle({
+  icon,
+  title,
+  subtitle,
+  className = 'mb-3',
+}: {
+  icon: ReactNode
+  title: string
+  subtitle: string
+  className?: string
+}) {
   return (
-    <div className="mb-3 flex items-center gap-2">
+    <div className={`${className} flex items-center gap-2`}>
       <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan-300/20 bg-cyan-400/10 text-cyan-100">
         {icon}
       </div>

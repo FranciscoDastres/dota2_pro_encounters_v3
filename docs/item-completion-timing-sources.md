@@ -27,8 +27,8 @@ OpenDota documents its API as replay-derived advanced match data, and its OpenAP
 Implementation rule:
 
 - If `purchase_log` contains the final item key, use that time as the exact completed timing.
-- If `purchase_log` does not contain the final item key, but the final inventory contains that item and dotaconstants lists its top-level components, estimate completion as the latest registered component purchase time.
-- If the match only has final inventory and no useful `purchase_log`, do not invent a timing. Show it as unavailable.
+- If `purchase_log` is missing, the backend queues an OpenDota parse request with `POST /request/{matchId}` and briefly refetches the match. If OpenDota finishes parsing quickly, the same response can include exact timings.
+- If `purchase_log` does not contain the final item key, do not invent a timing. Show it as unavailable and let a later refresh pick up parsed data if OpenDota adds it.
 
 ## Item Metadata And Components: dotaconstants
 
@@ -81,14 +81,18 @@ Recommended future integration:
 
 Each core item timing includes:
 
-- `completedMinute`: exact or estimated completion minute, or `null`
-- `timingSource`: `purchase_log`, `component_inference`, or `unavailable`
+- `core_items`: final inventory slots with exact completion timing when `purchase_log` contains that exact item key
+- `completedMinute`: exact completion minute, or `null`
+- `timingSource`: `purchase_log` or `unavailable`
 - `userMinute`: kept for backward compatibility and currently mirrors `completedMinute`
 - `proMinute`: benchmark target minute
 - `status`: `on_time`, `late`, `missing`, or `snapshot`
+- `match_parse.status`: `not_needed`, `requested`, or `already_requested`
+- `match_parse.purchase_log_available`: whether exact OpenDota purchase log data was present in the response
 
 The hover text should say:
 
 - `Completado` for exact OpenDota `purchase_log`
-- `Completado estimado` for component-based inference
 - `Timing de completado no disponible` when only snapshot data exists
+
+When `match_parse.status` is `requested`, the frontend should tell the user that exact timings may appear after OpenDota finishes parsing and the comparison is refreshed.

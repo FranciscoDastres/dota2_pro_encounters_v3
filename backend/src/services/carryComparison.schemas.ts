@@ -50,9 +50,14 @@ export const openDotaPurchaseLogSchema = z.object({
   key: z.string(),
 })
 
+const parsedStringWithFallback = z.preprocess(
+  (value) => value ?? '',
+  z.string(),
+)
+
 export const openDotaNeutralItemHistorySchema = z.object({
   time: z.number(),
-  item_neutral: z.string(),
+  item_neutral: parsedStringWithFallback,
   item_neutral_enhancement: z.string().nullable().optional(),
 }).passthrough()
 

@@ -6,6 +6,7 @@ import type {
 } from './carryComparison.schemas'
 import type {
   CarryItemTimingComparison,
+  CarryCoreItemEntry,
   CarryNeutralItemHistoryEntry,
   CarryPurchaseTrailEntry,
   CarrySkillBuildEntry,
@@ -49,42 +50,6 @@ function sameItemKey(left: string, right: string): boolean {
 
 function resolveItemById(constants: ResolvedItemConstant[], itemId: number): ResolvedItemConstant | null {
   return constants.find((entry) => entry.id === itemId) ?? null
-}
-
-function finalInventoryItemIds(player: OpenDotaMatchPlayer | undefined): number[] {
-  if (!player) return []
-  return [
-    player.item_0,
-    player.item_1,
-    player.item_2,
-    player.item_3,
-    player.item_4,
-    player.item_5,
-    player.backpack_0,
-    player.backpack_1,
-    player.backpack_2,
-  ].filter((itemId) => itemId > 0)
-}
-
-function inferCompletionTimeFromComponents(
-  item: ResolvedItemConstant,
-  purchaseLog: OpenDotaPurchaseLog[],
-  finalItemIds: number[],
-): number | null {
-  if (item.components.length === 0 || !finalItemIds.includes(item.id)) return null
-
-  const usedIndexes = new Set<number>()
-  const componentTimes = item.components.map((componentKey) => {
-    const componentIndex = purchaseLog.findIndex((entry, index) =>
-      !usedIndexes.has(index) && sameItemKey(entry.key, componentKey),
-    )
-    if (componentIndex === -1) return null
-    usedIndexes.add(componentIndex)
-    return purchaseLog[componentIndex].time
-  })
-
-  if (componentTimes.some((time) => time === null)) return null
-  return Math.max(...componentTimes.filter((time): time is number => time !== null))
 }
 
 function resolveNeutralTier(minute: number): 1 | 2 | 3 | 4 | 5 {
@@ -217,6 +182,8 @@ export function buildNeutralItems(
   const byTier = new Map<1 | 2 | 3 | 4 | 5, CarryNeutralItemHistoryEntry>()
 
   for (const entry of neutralItemHistory ?? []) {
+    if (!entry.item_neutral) continue
+
     const minute = round(entry.time / 60, 1)
     const tier = resolveNeutralTier(minute)
     if (byTier.has(tier)) continue
@@ -239,33 +206,66 @@ export function buildNeutralItems(
     .filter((entry): entry is CarryNeutralItemHistoryEntry => Boolean(entry))
 }
 
+function findLastPurchaseTime(purchaseLog: OpenDotaPurchaseLog[], itemKey: string): number | null {
+  let completedAt: number | null = null
+  for (const entry of purchaseLog) {
+    if (sameItemKey(entry.key, itemKey)) completedAt = entry.time
+  }
+  return completedAt
+}
+
+export function buildCoreItems(
+  player: OpenDotaMatchPlayer,
+  itemConstants: ResolvedItemConstant[],
+): CarryCoreItemEntry[] {
+  const slots: Array<{
+    key: 'item_0' | 'item_1' | 'item_2' | 'item_3' | 'item_4' | 'item_5'
+    label: string
+  }> = [
+    { key: 'item_0', label: 'Slot 1' },
+    { key: 'item_1', label: 'Slot 2' },
+    { key: 'item_2', label: 'Slot 3' },
+    { key: 'item_3', label: 'Slot 4' },
+    { key: 'item_4', label: 'Slot 5' },
+    { key: 'item_5', label: 'Slot 6' },
+  ]
+
+  return slots
+    .map<CarryCoreItemEntry | null>(({ key, label }) => {
+      const itemId = player[key]
+      if (!itemId) return null
+
+      const resolved = resolveItemById(itemConstants, itemId)
+      if (!resolved) return null
+
+      const completedAt = findLastPurchaseTime(player.purchase_log ?? [], resolved.key)
+      return {
+        itemKey: resolved.key,
+        itemName: resolved.dname,
+        iconUrl: resolved.iconUrl,
+        description: resolved.description ?? resolved.dname,
+        slotLabel: label,
+        completedMinute: completedAt === null ? null : round(completedAt / 60, 1),
+        timingSource: completedAt === null ? 'unavailable' : 'purchase_log',
+      }
+    })
+    .filter((entry): entry is CarryCoreItemEntry => entry !== null)
+}
+
 export function compareItemTimings(
   heroId: number,
   purchaseLog: OpenDotaPurchaseLog[],
   itemConstants: ResolvedItemConstant[],
-  player?: OpenDotaMatchPlayer,
 ): CarryItemTimingComparison[] {
   const timings = CORE_ITEM_TIMINGS_BY_HERO[heroId] ?? DEFAULT_CORE_TIMINGS
   const hasPurchaseLog = purchaseLog.length > 0
-  const finalItemIds = finalInventoryItemIds(player)
 
   return Object.entries(timings).map(([itemKey, target]) => {
     const resolvedItem = resolveItemByKey(itemConstants, itemKey)
     const resolvedItemKey = resolvedItem?.key ?? canonicalItemKey(itemKey)
-    const purchase = purchaseLog.find((entry) => sameItemKey(entry.key, resolvedItemKey))
-    const inferredCompletionTime = purchase || !resolvedItem
-      ? null
-      : inferCompletionTimeFromComponents(resolvedItem, purchaseLog, finalItemIds)
-    const completedMinute = purchase
-      ? round(purchase.time / 60)
-      : inferredCompletionTime === null
-        ? null
-        : round(inferredCompletionTime / 60)
-    const timingSource = purchase
-      ? 'purchase_log'
-      : inferredCompletionTime === null
-        ? 'unavailable'
-        : 'component_inference'
+    const completedAt = findLastPurchaseTime(purchaseLog, resolvedItemKey)
+    const completedMinute = completedAt === null ? null : round(completedAt / 60)
+    const timingSource = completedAt === null ? 'unavailable' : 'purchase_log'
     const userMinute = completedMinute
     const differenceMinutes = userMinute === null ? null : round(userMinute - target.optimalMinute)
     const status =

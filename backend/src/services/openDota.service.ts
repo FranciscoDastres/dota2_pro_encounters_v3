@@ -2,24 +2,29 @@ import axios, { AxiosError } from 'axios'
 import { env } from '../config/env'
 import { logger } from '../config/logger'
 import type { OpenDotaProEncounter, SharedMatch } from '../types'
+import { AsyncTtlCache } from './asyncTtlCache.service'
 
 const client = axios.create({
   baseURL: env.OPENDOTA_API_URL,
-  timeout: 15_000,
+  timeout: 8_000,
   params: env.OPENDOTA_API_KEY ? { api_key: env.OPENDOTA_API_KEY } : {},
 })
 
 const dotaconstantsClient = axios.create({
   baseURL: 'https://unpkg.com',
-  timeout: 15_000,
+  timeout: 8_000,
 })
 
 const DOTACONSTANTS_VERSION = '10.8.0'
-const parseRequests = new Map<number, 'requested' | 'failed'>()
+const PARSE_REQUEST_TTL_MS = 30 * 60 * 1000
+const parseRequests = new AsyncTtlCache<number, 'requested' | 'failed'>(PARSE_REQUEST_TTL_MS, 2_000)
+const sharedMatchesCache = new AsyncTtlCache<string, SharedMatch[]>(5 * 60 * 1000, 2_000)
+const heroBenchmarksCache = new AsyncTtlCache<number, unknown>(6 * 60 * 60 * 1000, 200)
+const heroesCache = new AsyncTtlCache<'heroes', unknown>(24 * 60 * 60 * 1000, 1)
 
 // ─── Retry with exponential backoff ──────────────────────────────────────────
 
-const MAX_RETRIES = 2        // era 3 — con 2 el tiempo máximo baja de ~16s a ~2s
+const MAX_ATTEMPTS = 2
 const RETRY_BASE_MS = 500
 
 function isRetryable(err: unknown): boolean {
@@ -32,12 +37,12 @@ function isRetryable(err: unknown): boolean {
 
 async function withRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
   let lastError: unknown
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       return await fn()
     } catch (err) {
       lastError = err
-      if (!isRetryable(err) || attempt === MAX_RETRIES) break
+      if (!isRetryable(err) || attempt === MAX_ATTEMPTS) break
       const delay = RETRY_BASE_MS * 2 ** (attempt - 1)
       logger.warn(`[${label}] attempt ${attempt} failed — retrying in ${delay}ms`, {
         status: err instanceof AxiosError ? err.response?.status : undefined,
@@ -110,9 +115,14 @@ class CircuitBreaker {
   }
 }
 
-const breaker = new CircuitBreaker()
+const breakers = new Map<string, CircuitBreaker>()
 
 function withResilience<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  let breaker = breakers.get(label)
+  if (!breaker) {
+    breaker = new CircuitBreaker()
+    breakers.set(label, breaker)
+  }
   return breaker.run(label, () => withRetry(label, fn))
 }
 
@@ -141,15 +151,57 @@ export async function getSharedMatches(
   limit = 20,
   filter?: 'with' | 'against',
 ): Promise<SharedMatch[]> {
+  const cacheKey = `${accountId}:${proAccountId}:${limit}:${filter ?? 'all'}`
   const filterParam =
     filter === 'with' ? { with_account_id: proAccountId } :
       filter === 'against' ? { against_account_id: proAccountId } :
         { included_account_id: proAccountId }
 
-  const { data } = await withResilience('getSharedMatches', () =>
-    client.get<SharedMatch[]>(`/players/${accountId}/matches`, {
-      params: { ...filterParam, limit },
-    }),
+  return sharedMatchesCache.getOrLoad(cacheKey, async () => {
+    const { data } = await withResilience('getSharedMatches', () =>
+      client.get<SharedMatch[]>(`/players/${accountId}/matches`, {
+        params: { ...filterParam, limit },
+      }),
+    )
+    return data
+  })
+}
+
+export function clearOpenDotaResponseCaches(): void {
+  sharedMatchesCache.clear()
+  heroBenchmarksCache.clear()
+  heroesCache.clear()
+}
+
+/**
+ * Returns the public player profile and rank data.
+ * Endpoint: GET /players/{account_id}
+ */
+export async function getPlayerProfile(accountId: number): Promise<unknown> {
+  const { data } = await withResilience('getPlayerProfile', () =>
+    client.get(`/players/${accountId}`),
+  )
+  return data
+}
+
+/**
+ * Returns aggregate hero statistics for a player.
+ * Endpoint: GET /players/{account_id}/heroes
+ */
+export async function getPlayerHeroes(accountId: number): Promise<unknown> {
+  const { data } = await withResilience('getPlayerHeroes', () =>
+    client.get(`/players/${accountId}/heroes`),
+  )
+  return data
+}
+
+/**
+ * Returns recent matches for a player.
+ * Endpoint: GET /players/{account_id}/recentMatches
+ */
+export async function getRecentMatches(accountId: number): Promise<unknown> {
+  const { data } = await withResilience('getRecentMatches', () =>
+    client.get(`/players/${accountId}/recentMatches`),
   )
   return data
 }
@@ -191,7 +243,7 @@ export async function requestMatchParse(matchId: number): Promise<unknown> {
 }
 
 export function queueMatchParseRequest(matchId: number): 'requested' | 'already_requested' {
-  if (parseRequests.has(matchId)) return 'already_requested'
+  if (parseRequests.get(matchId)) return 'already_requested'
 
   parseRequests.set(matchId, 'requested')
   void requestMatchParse(matchId)
@@ -216,12 +268,14 @@ export function clearQueuedMatchParseRequests(): void {
  * Endpoint: GET /benchmarks?hero_id={hero_id}
  */
 export async function getHeroBenchmarks(heroId: number): Promise<unknown> {
-  const { data } = await withResilience('getHeroBenchmarks', () =>
-    client.get('/benchmarks', {
-      params: { hero_id: heroId },
-    }),
-  )
-  return data
+  return heroBenchmarksCache.getOrLoad(heroId, async () => {
+    const { data } = await withResilience('getHeroBenchmarks', () =>
+      client.get('/benchmarks', {
+        params: { hero_id: heroId },
+      }),
+    )
+    return data
+  })
 }
 
 /**
@@ -229,10 +283,12 @@ export async function getHeroBenchmarks(heroId: number): Promise<unknown> {
  * Endpoint: GET /heroes
  */
 export async function getHeroes(): Promise<unknown> {
-  const { data } = await withResilience('getHeroes', () =>
-    client.get('/heroes'),
-  )
-  return data
+  return heroesCache.getOrLoad('heroes', async () => {
+    const { data } = await withResilience('getHeroes', () =>
+      client.get('/heroes'),
+    )
+    return data
+  })
 }
 
 /**

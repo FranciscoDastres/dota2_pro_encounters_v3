@@ -44,6 +44,52 @@ export interface SharedMatchesResponse {
   matches: SharedMatch[]
 }
 
+export interface Hero {
+  id: number
+  name: string
+  localized_name: string
+}
+
+export interface HeroesResponse {
+  heroes: Hero[]
+}
+
+export interface RecentMatch {
+  match_id: number
+  player_slot: number
+  radiant_win: boolean
+  hero_id: number
+  start_time: number
+  duration: number
+  kills: number
+  deaths: number
+  assists: number
+}
+
+export interface TopHero {
+  heroId: number
+  games: number
+  wins: number
+  winRate: number
+}
+
+export interface PlayerProfileData {
+  personaname: string
+  avatarfull: string
+  profileurl: string
+  rankTier: number | null
+  countryCode: string | null
+  totalGames: number
+  totalWins: number
+  topHeroes: TopHero[]
+  recentMatches: RecentMatch[]
+}
+
+export interface PlayerProfileResponse {
+  account_id: number
+  profile: PlayerProfileData | null
+}
+
 export interface CarryComparisonMetric {
   key:
   | 'gold_per_min'

@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react'
-
-interface Hero {
-  id: number
-  name: string          // "npc_dota_hero_antimage"
-  localized_name: string
-}
+import { fetchHeroes } from '../services/api'
+import type { Hero } from '../types'
 
 export type HeroMap = Record<number, Hero>
 
@@ -31,9 +27,8 @@ function getHeroes(): Promise<HeroMap> {
   if (cached) return Promise.resolve(cached)
   if (inflight) return inflight
 
-  inflight = fetch('https://api.opendota.com/api/heroes', { signal: AbortSignal.timeout(8000) })
-    .then(r => r.json() as Promise<Hero[]>)
-    .then(heroes => {
+  inflight = fetchHeroes()
+    .then(({ heroes }) => {
       const map: HeroMap = {}
       for (const h of heroes) map[h.id] = h
       try {

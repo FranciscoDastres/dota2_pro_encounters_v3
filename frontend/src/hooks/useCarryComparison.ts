@@ -42,25 +42,23 @@ export function usePositionComparison(
       return
     }
 
-    let cancelled = false
+    const controller = new AbortController()
     lastKeyRef.current = key
     setState((current) => ({ ...current, loading: true, error: null }))
 
-    fetchPositionComparison(accountId, matchId, heroId, percentile)
+    fetchPositionComparison(accountId, matchId, heroId, percentile, controller.signal)
       .then((response) => {
-        if (cancelled) return
+        if (controller.signal.aborted) return
         carryComparisonCache.set(key, response)
         setState({ data: response, loading: false, error: null })
       })
       .catch((err: unknown) => {
-        if (cancelled) return
+        if (controller.signal.aborted) return
         const message = err instanceof Error ? err.message : 'Could not load carry comparison.'
         setState({ data: null, loading: false, error: message })
       })
 
-    return () => {
-      cancelled = true
-    }
+    return () => controller.abort()
   }, [accountId, matchId, heroId, percentile])
 
   return state

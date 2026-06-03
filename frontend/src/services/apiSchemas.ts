@@ -40,6 +40,48 @@ export const sharedMatchesResponseSchema = z.object({
   matches: z.array(sharedMatchSchema),
 })
 
+export const heroSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  localized_name: z.string(),
+})
+
+export const heroesResponseSchema = z.object({
+  heroes: z.array(heroSchema),
+})
+
+export const recentMatchSchema = z.object({
+  match_id: z.number(),
+  player_slot: z.number(),
+  radiant_win: z.boolean(),
+  hero_id: z.number(),
+  start_time: z.number(),
+  duration: z.number().nonnegative(),
+  kills: z.number().nonnegative(),
+  deaths: z.number().nonnegative(),
+  assists: z.number().nonnegative(),
+})
+
+export const playerProfileResponseSchema = z.object({
+  account_id: z.number(),
+  profile: z.object({
+    personaname: z.string(),
+    avatarfull: z.string(),
+    profileurl: z.string(),
+    rankTier: z.number().nullable(),
+    countryCode: z.string().nullable(),
+    totalGames: z.number().nonnegative(),
+    totalWins: z.number().nonnegative(),
+    topHeroes: z.array(z.object({
+      heroId: z.number(),
+      games: z.number().nonnegative(),
+      wins: z.number().nonnegative(),
+      winRate: z.number(),
+    })),
+    recentMatches: z.array(recentMatchSchema),
+  }).nullable(),
+})
+
 export const carryComparisonMetricSchema = z.object({
   key: z.enum([
     'gold_per_min',

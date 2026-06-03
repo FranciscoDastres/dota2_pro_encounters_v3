@@ -1,10 +1,15 @@
 import app from './app'
 import { env } from './config/env'
 import { logger } from './config/logger'
-import https from 'https'
-// Solución al Warning de TLS Socket Memory Leak
-// Incrementa el límite de listeners permitidos o reutiliza conexiones de forma segura
-https.globalAgent.setMaxListeners(50)
+import { warmDotaConstantsCaches } from './services/dotaConstants.service'
+import { getHeroes } from './services/openDota.service'
+
 app.listen(env.PORT, '0.0.0.0', () => {
   logger.info('server started', { port: env.PORT, env: env.NODE_ENV })
+
+  if (env.isProduction) {
+    void Promise.all([warmDotaConstantsCaches(), getHeroes()])
+      .then(() => logger.info('Dota reference data warmed'))
+      .catch((err) => logger.warn('Dota reference data warmup failed', { err }))
+  }
 })

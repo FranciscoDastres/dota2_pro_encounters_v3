@@ -19,6 +19,7 @@ router.get('/:accountId', validateParams(proEncountersParamsSchema), async (req:
     const accountIdNum = parseInt(accountId, 10)
     const pros = await getPlayerProsWithCache(accountIdNum)
 
+    res.set('Cache-Control', 'private, max-age=300, stale-while-revalidate=900')
     res.json({ account_id: accountIdNum, pros })
   } catch (err) {
     if (axios.isAxiosError(err)) {
@@ -29,6 +30,7 @@ router.get('/:accountId', validateParams(proEncountersParamsSchema), async (req:
           : 'Could not connect to the OpenDota API.',
       ) as AppError
       appErr.status = status === 429 ? 429 : 503
+      if (appErr.status === 503) res.set('Retry-After', '30')
       return next(appErr)
     }
 
@@ -36,6 +38,7 @@ router.get('/:accountId', validateParams(proEncountersParamsSchema), async (req:
     if (err instanceof Error && err.message.includes('circuit open')) {
       const appErr = new Error('Could not connect to the OpenDota API.') as AppError
       appErr.status = 503
+      res.set('Retry-After', '30')
       return next(appErr)
     }
     next(err)

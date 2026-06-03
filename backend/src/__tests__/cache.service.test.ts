@@ -108,5 +108,21 @@ describe('cache.service — getPlayerProsWithCache', () => {
       expect(mockGetPlayerPros).toHaveBeenCalledWith(12345)
       expect(result).toEqual(mockPros)
     })
+
+    it('deduplicates concurrent OpenDota requests for the same account', async () => {
+      let resolvePros!: (value: OpenDotaProEncounter[]) => void
+      mockQuery.mockResolvedValue({ rows: [] })
+      mockGetPlayerPros.mockImplementationOnce(() => new Promise((resolve) => {
+        resolvePros = resolve
+      }))
+
+      const first = getPlayerProsWithCache(12345)
+      const second = getPlayerProsWithCache(12345)
+      await vi.waitFor(() => expect(mockGetPlayerPros).toHaveBeenCalledTimes(1))
+      resolvePros(mockPros)
+
+      await expect(Promise.all([first, second])).resolves.toEqual([mockPros, mockPros])
+      expect(mockGetPlayerPros).toHaveBeenCalledTimes(1)
+    })
   })
 })

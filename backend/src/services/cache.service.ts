@@ -2,11 +2,13 @@ import { query } from './database.service'
 import { getPlayerPros } from './openDota.service'
 import { logger } from '../config/logger'
 import type { OpenDotaProEncounter } from '../types'
+import { AsyncTtlCache } from './asyncTtlCache.service'
 
 const CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
 
 // In-memory layer to skip Postgres on hot queries within the same process
-const memCache = new Map<number, { pros: OpenDotaProEncounter[]; ts: number }>()
+const memCache = new AsyncTtlCache<number, OpenDotaProEncounter[]>(CACHE_TTL_MS, 2_000)
+const inflight = new Map<number, Promise<OpenDotaProEncounter[]>>()
 
 type CachedProsRow = {
   pros: OpenDotaProEncounter[]
@@ -15,32 +17,43 @@ type CachedProsRow = {
 
 export function clearPlayerProsMemoryCache(): void {
   memCache.clear()
+  inflight.clear()
 }
 
 export async function getPlayerProsWithCache(accountId: number): Promise<OpenDotaProEncounter[]> {
   const mem = memCache.get(accountId)
-  if (mem && Date.now() - mem.ts < CACHE_TTL_MS) return mem.pros
+  if (mem) return mem
 
-  const cached = await readCachedPros(accountId)
+  const pending = inflight.get(accountId)
+  if (pending) return pending
 
-  if (cached) {
-    const age = Date.now() - new Date(cached.cached_at as string).getTime()
-    if (age < CACHE_TTL_MS) {
-      const pros = cached.pros as OpenDotaProEncounter[]
-      memCache.set(accountId, { pros, ts: Date.now() - age })
-      return pros
+  const request = (async () => {
+    const cached = await readCachedPros(accountId)
+
+    if (cached) {
+      const age = Date.now() - new Date(cached.cached_at as string).getTime()
+      if (age < CACHE_TTL_MS) {
+        const pros = cached.pros as OpenDotaProEncounter[]
+        memCache.set(accountId, pros, CACHE_TTL_MS - age)
+        return pros
+      }
     }
-  }
 
-  const pros = await getPlayerPros(accountId)
-  memCache.set(accountId, { pros, ts: Date.now() })
+    const pros = await getPlayerPros(accountId)
+    memCache.set(accountId, pros)
 
-  // fire-and-forget: don't block the response waiting for the write
-  writeCachedPros(accountId, pros).catch((err) => {
-    logger.warn('cache upsert failed', { err })
+    // fire-and-forget: don't block the response waiting for the write
+    writeCachedPros(accountId, pros).catch((err) => {
+      logger.warn('cache upsert failed', { err })
+    })
+
+    return pros
+  })().finally(() => {
+    inflight.delete(accountId)
   })
 
-  return pros
+  inflight.set(accountId, request)
+  return request
 }
 
 async function readCachedPros(accountId: number): Promise<CachedProsRow | null> {

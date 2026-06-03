@@ -23,6 +23,7 @@ router.get('/:accountId/:matchId/:heroId', validateParams(carryComparisonParamsS
       percentile,
     })
 
+    res.set('Cache-Control', 'private, max-age=300, stale-while-revalidate=900')
     res.json(comparison)
   } catch (err) {
     if (axios.isAxiosError(err)) {

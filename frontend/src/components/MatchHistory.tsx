@@ -127,6 +127,8 @@ export function MatchHistory({ accountId, proAccountId }: Props) {
                     <img
                       src={heroIconUrl(hero)}
                       alt={hero.localized_name}
+                      loading="lazy"
+                      decoding="async"
                       className="h-8 w-8 flex-shrink-0 rounded"
                       onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                     />

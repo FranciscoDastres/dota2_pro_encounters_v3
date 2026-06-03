@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import type { ProEncountersResponse, ProEncounter } from '../types'
 import { ProEncounterRow } from './ProEncounterRow'
 
@@ -9,6 +9,7 @@ interface Props {
 
 type SortKey = 'personaname' | 'team_name' | 'last_match_time' | 'games' | 'win' | 'losses' | 'winrate'
 type SortDir = 'asc' | 'desc'
+const PAGE_SIZE = 100
 
 interface Header {
   key: string
@@ -123,6 +124,7 @@ export function ProEncounterTable({ data, loading }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('games')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [onlyNamed, setOnlyNamed] = useState(true)
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
   const filtered = useMemo(
     () => data ? (onlyNamed ? data.pros.filter(p => p.name) : data.pros) : [],
@@ -133,6 +135,14 @@ export function ProEncounterTable({ data, loading }: Props) {
     () => filtered.length ? sortPros(filtered, sortKey, sortDir) : [],
     [filtered, sortKey, sortDir],
   )
+  const visiblePros = useMemo(
+    () => sorted.slice(0, visibleCount),
+    [sorted, visibleCount],
+  )
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE)
+  }, [data, onlyNamed, sortKey, sortDir])
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -252,7 +262,7 @@ export function ProEncounterTable({ data, loading }: Props) {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((pro, index) => (
+              {visiblePros.map((pro, index) => (
                 <ProEncounterRow
                   key={pro.account_id}
                   pro={pro}
@@ -263,6 +273,16 @@ export function ProEncounterTable({ data, loading }: Props) {
             </tbody>
           </table>
         </div>
+        {visiblePros.length < sorted.length && (
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+              className="rounded-md border border-dota-border px-4 py-2 text-xs text-gray-400 transition-colors hover:border-dota-gold/40 hover:text-dota-gold"
+            >
+              Show {Math.min(PAGE_SIZE, sorted.length - visiblePros.length)} more
+            </button>
+          </div>
+        )}
         {/* Mobile scroll hint */}
         <div className="pointer-events-none absolute inset-y-0 right-0 w-12 rounded-r-xl bg-gradient-to-l from-dota-dark/80 to-transparent sm:hidden" />
       </div>

@@ -20,13 +20,15 @@ export function ProEncounterRow({ pro, index, accountId }: Props) {
     <>
       <tr
         className="group animate-fade-up border-b border-l-2 border-dota-border border-l-transparent transition-colors hover:border-l-dota-gold/50 hover:bg-dota-surface/80"
-        style={{ animationDelay: `${index * 55}ms` }}
+        style={{ animationDelay: `${Math.min(index, 10) * 35}ms` }}
       >
         {/* Avatar */}
         <td className="px-4 py-3">
           <img
             src={pro.avatarfull}
             alt={`${pro.personaname}'s avatar`}
+            loading="lazy"
+            decoding="async"
             className="h-10 w-10 rounded-full object-cover ring-2 ring-dota-border transition-all group-hover:ring-dota-gold/40"
           />
         </td>

@@ -22,6 +22,7 @@ vi.mock('../services/openDota.service', () => ({
 
 const { getCarryComparison } = await import('../services/carryComparison.service')
 const { clearDotaConstantsCaches } = await import('../services/dotaConstants.service')
+const { clearPositionComparisonCache } = await import('../services/positionComparison.service')
 
 describe('getCarryComparison', () => {
   beforeEach(() => {
@@ -35,6 +36,7 @@ describe('getCarryComparison', () => {
     mockQueueMatchParseRequest.mockReset()
     mockQueueMatchParseRequest.mockReturnValue('requested')
     clearDotaConstantsCaches()
+    clearPositionComparisonCache()
   })
 
   it('uses the explicit matchId and heroId from the dashboard state', async () => {
@@ -156,5 +158,50 @@ describe('getCarryComparison', () => {
         slotLabel: 'Slot 1',
       }),
     ])
+  })
+
+  it('starts independent OpenDota requests in parallel', async () => {
+    let resolveMatch!: (value: unknown) => void
+    mockGetMatchDetails.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveMatch = resolve
+    }))
+    mockGetHeroBenchmarks.mockResolvedValueOnce({
+      hero_id: 41,
+      result: {
+        gold_per_min: [],
+        last_hits_per_min: [],
+      },
+    })
+    mockGetAbilityConstants.mockResolvedValueOnce({})
+    mockGetAbilityIds.mockResolvedValueOnce({})
+    mockGetHeroes.mockResolvedValueOnce([{ id: 41, name: 'npc_dota_hero_furion' }])
+    mockGetHeroAbilityData.mockResolvedValueOnce({})
+    mockGetItems.mockResolvedValueOnce({})
+
+    const pending = getCarryComparison({
+      accountId: 12345,
+      matchId: 9003,
+      heroId: 41,
+      percentile: 99,
+    })
+
+    expect(mockGetHeroBenchmarks).toHaveBeenCalledWith(41)
+    expect(mockGetAbilityConstants).toHaveBeenCalled()
+    expect(mockGetHeroes).toHaveBeenCalled()
+
+    resolveMatch({
+      match_id: 9003,
+      duration: 2400,
+      players: [{
+        account_id: 12345,
+        hero_id: 41,
+        gold_per_min: 500,
+        xp_per_min: 500,
+        last_hits: 100,
+        purchase_log: [],
+      }],
+    })
+
+    await pending
   })
 })

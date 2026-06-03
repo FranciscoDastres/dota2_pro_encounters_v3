@@ -1,5 +1,6 @@
 import request from 'supertest'
 import app, { isAllowedCorsOrigin } from '../app'
+import { isHealthCheckPath } from '../middleware/rateLimiter'
 
 describe('GET /api/health', () => {
   it('returns 200 with status ok', async () => {
@@ -7,6 +8,12 @@ describe('GET /api/health', () => {
     expect(res.status).toBe(200)
     expect(res.body).toMatchObject({ status: 'ok' })
     expect(typeof res.body.timestamp).toBe('string')
+  })
+
+  it('is excluded from API rate limiting', () => {
+    expect(isHealthCheckPath('/health')).toBe(true)
+    expect(isHealthCheckPath('/health/deep')).toBe(true)
+    expect(isHealthCheckPath('/pro-encounters/12345')).toBe(false)
   })
 })
 

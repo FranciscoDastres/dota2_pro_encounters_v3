@@ -27,6 +27,8 @@ export function HeroBackground() {
             alt=""
             draggable={false}
             loading="lazy"
+            decoding="async"
+            fetchPriority="low"
             className="h-[90%] w-auto object-contain object-bottom opacity-[0.13] grayscale-[30%]"
           />
         ))}

@@ -5,12 +5,16 @@ import { query } from '../services/database.service'
 import proEncountersRouter from './proEncounters.route'
 import proMatchesRouter from './proMatches.route'
 import carryComparisonRouter from './carryComparison.route'
+import playerProfileRouter from './playerProfile.route'
+import heroesRouter from './heroes.route'
 
 const router = Router()
 
 router.use('/pro-encounters', proEncountersRouter)
 router.use('/pro-matches', proMatchesRouter)
 router.use('/carry-comparison', carryComparisonRouter)
+router.use('/player-profile', playerProfileRouter)
+router.use('/heroes', heroesRouter)
 
 router.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })

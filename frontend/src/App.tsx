@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { useProEncounters } from './hooks/useProEncounters'
 import { useOnlineStatus } from './hooks/useOnlineStatus'
 import { useSearchHistory } from './hooks/useSearchHistory'
@@ -6,11 +6,14 @@ import { SearchForm } from './components/SearchForm'
 import { ErrorMessage } from './components/ErrorMessage'
 import { EmptyState } from './components/EmptyState'
 import { ProEncounterTable } from './components/ProEncounterTable'
-import { PlayerProfile } from './components/PlayerProfile'
 import { Footer } from './components/Footer'
 import { KofiWidget } from './components/KofiWidget'
 import { OfflineBanner } from './components/OfflineBanner'
 import { HeroBackground } from './components/HeroBackground'
+
+const PlayerProfile = lazy(() =>
+  import('./components/PlayerProfile').then((module) => ({ default: module.PlayerProfile })),
+)
 
 function App() {
   const { data, status, error, search, reset } = useProEncounters()
@@ -123,7 +126,11 @@ function App() {
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 pb-12">
         {status === 'loading' && (
           <div>
-            {activeAccountId != null && <PlayerProfile accountId={activeAccountId} />}
+            {activeAccountId != null && (
+              <Suspense fallback={null}>
+                <PlayerProfile accountId={activeAccountId} />
+              </Suspense>
+            )}
             <ProEncounterTable loading={true} />
           </div>
         )}
@@ -134,7 +141,9 @@ function App() {
 
         {status === 'success' && data && (
           <div className="animate-fade-up">
-            <PlayerProfile accountId={data.account_id} />
+            <Suspense fallback={null}>
+              <PlayerProfile accountId={data.account_id} />
+            </Suspense>
 
             {data.pros.length === 0
               ? <EmptyState accountId={data.account_id} />

@@ -34,16 +34,12 @@ import type {
   OpenDotaMatch,
   OpenDotaMatchPlayer,
 } from './carryComparison.schemas'
+import { AsyncTtlCache } from './asyncTtlCache.service'
 
 export * from './carryComparison.schemas'
 export type * from './carryComparison.types'
 
-const PARSE_REFETCH_ATTEMPTS = process.env.NODE_ENV === 'test' ? 0 : 3
-const PARSE_REFETCH_DELAY_MS = 4_000
-
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
+const comparisonCache = new AsyncTtlCache<string, CarryComparisonResponse>(5 * 60 * 1000, 1_000)
 
 function findRequestedPlayer(match: OpenDotaMatch, accountId: number, heroId: number): OpenDotaMatchPlayer {
   const player = match.players.find((entry) => entry.account_id === accountId)
@@ -59,22 +55,8 @@ function findRequestedPlayer(match: OpenDotaMatch, accountId: number, heroId: nu
   return player
 }
 
-async function refetchMatchUntilPurchaseLog(params: {
-  matchId: number
-  accountId: number
-  heroId: number
-}): Promise<{ match: OpenDotaMatch; player: OpenDotaMatchPlayer } | null> {
-  for (let attempt = 1; attempt <= PARSE_REFETCH_ATTEMPTS; attempt++) {
-    await wait(PARSE_REFETCH_DELAY_MS)
-
-    const match = openDotaMatchSchema.parse(await getMatchDetails(params.matchId))
-    const player = findRequestedPlayer(match, params.accountId, params.heroId)
-    if (player.purchase_log.length > 0) {
-      return { match, player }
-    }
-  }
-
-  return null
+export function clearPositionComparisonCache(): void {
+  comparisonCache.clear()
 }
 
 export function comparePositionPerformance(params: {
@@ -174,50 +156,54 @@ export async function getPositionComparison(params: {
   percentile?: BenchmarkPercentile
 }): Promise<CarryComparisonResponse> {
   const percentile = params.percentile ?? 95
-  let match = openDotaMatchSchema.parse(await getMatchDetails(params.matchId))
+  const cacheKey = `${params.accountId}:${params.matchId}:${params.heroId}:${percentile}`
 
-  if (match.match_id !== params.matchId) {
-    throw new Error('OpenDota match payload did not match the requested matchId.')
-  }
+  return comparisonCache.getOrLoad(cacheKey, async () => {
+    const [
+      matchPayload,
+      benchmarksPayload,
+      abilityConstants,
+      abilityIds,
+      heroAbilityData,
+      heroesPayload,
+      itemConstants,
+    ] = await Promise.all([
+      getMatchDetails(params.matchId),
+      getHeroBenchmarks(params.heroId),
+      loadAbilityConstants(),
+      loadAbilityIds(),
+      loadHeroAbilityData(),
+      getHeroes(),
+      loadItemConstants(),
+    ])
 
-  let player = findRequestedPlayer(match, params.accountId, params.heroId)
-
-  const matchParseStatus = player.purchase_log.length > 0
-    ? 'not_needed'
-    : queueMatchParseRequest(params.matchId)
-
-  if (player.purchase_log.length === 0) {
-    const parsed = await refetchMatchUntilPurchaseLog({
-      matchId: params.matchId,
-      accountId: params.accountId,
-      heroId: params.heroId,
-    })
-    if (parsed) {
-      match = parsed.match
-      player = parsed.player
+    const match = openDotaMatchSchema.parse(matchPayload)
+    if (match.match_id !== params.matchId) {
+      throw new Error('OpenDota match payload did not match the requested matchId.')
     }
-  }
 
-  const benchmarks = openDotaBenchmarksSchema.parse(await getHeroBenchmarks(params.heroId))
-  const abilityConstants = await loadAbilityConstants()
-  const abilityIds = await loadAbilityIds()
-  const heroAbilityData = await loadHeroAbilityData()
-  const heroes = openDotaHeroesSchema.parse(await getHeroes())
-  const itemConstants = await loadItemConstants()
-  const heroName = heroes.find((entry) => entry.id === params.heroId)?.name ?? null
-  const skillBuild = buildSkillProgression(player.ability_upgrades_arr, abilityConstants, abilityIds, heroName, heroAbilityData)
+    const player = findRequestedPlayer(match, params.accountId, params.heroId)
+    const matchParseStatus = player.purchase_log.length > 0
+      ? 'not_needed'
+      : queueMatchParseRequest(params.matchId)
 
-  return comparePositionPerformance({
-    accountId: params.accountId,
-    match,
-    player,
-    benchmarks,
-    skillBuild,
-    heroName,
-    heroAbilityData,
-    abilityConstants,
-    itemConstants,
-    percentile,
-    matchParseStatus,
+    const benchmarks = openDotaBenchmarksSchema.parse(benchmarksPayload)
+    const heroes = openDotaHeroesSchema.parse(heroesPayload)
+    const heroName = heroes.find((entry) => entry.id === params.heroId)?.name ?? null
+    const skillBuild = buildSkillProgression(player.ability_upgrades_arr, abilityConstants, abilityIds, heroName, heroAbilityData)
+
+    return comparePositionPerformance({
+      accountId: params.accountId,
+      match,
+      player,
+      benchmarks,
+      skillBuild,
+      heroName,
+      heroAbilityData,
+      abilityConstants,
+      itemConstants,
+      percentile,
+      matchParseStatus,
+    })
   })
 }

@@ -13,33 +13,39 @@ declare global {
 
 export function KofiWidget() {
   useEffect(() => {
-    if (window.__kofiWidgetOverlayLoaded || document.querySelector('script[data-kofi-overlay="true"]')) {
+    let script: HTMLScriptElement | null = null
+
+    const draw = () => {
       window.kofiWidgetOverlay?.draw(KOFI_USERNAME, {
         type: 'floating-chat',
         'floating-chat.donateButton.text': 'Support me',
         'floating-chat.donateButton.background-color': '#29ABE0',
         'floating-chat.donateButton.text-color': '#fff',
       })
-      return
     }
 
-    const script = document.createElement('script')
-    script.src = 'https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'
-    script.async = true
-    script.dataset.kofiOverlay = 'true'
-    script.onload = () => {
-      window.__kofiWidgetOverlayLoaded = true
-      window.kofiWidgetOverlay?.draw(KOFI_USERNAME, {
-        type: 'floating-chat',
-        'floating-chat.donateButton.text': 'Support me',
-        'floating-chat.donateButton.background-color': '#29ABE0',
-        'floating-chat.donateButton.text-color': '#fff',
-      })
+    const loadWidget = () => {
+      if (window.__kofiWidgetOverlayLoaded || document.querySelector('script[data-kofi-overlay="true"]')) {
+        draw()
+        return
+      }
+
+      script = document.createElement('script')
+      script.src = 'https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'
+      script.async = true
+      script.dataset.kofiOverlay = 'true'
+      script.onload = () => {
+        window.__kofiWidgetOverlayLoaded = true
+        draw()
+      }
+      document.head.appendChild(script)
     }
-    document.head.appendChild(script)
+
+    const timer = window.setTimeout(loadWidget, 3_000)
 
     return () => {
-      if (document.head.contains(script)) document.head.removeChild(script)
+      window.clearTimeout(timer)
+      if (script && document.head.contains(script)) document.head.removeChild(script)
     }
   }, [])
 

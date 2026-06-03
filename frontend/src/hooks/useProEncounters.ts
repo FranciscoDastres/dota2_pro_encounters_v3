@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { fetchProEncounters } from '../services/api'
 import type { ProEncountersResponse, SearchStatus } from '../types'
 
@@ -17,20 +17,28 @@ const INITIAL_STATE: State = { data: null, status: 'idle', error: null }
 
 export function useProEncounters(): UseProEncountersReturn {
   const [state, setState] = useState<State>(INITIAL_STATE)
+  const activeRequest = useRef<AbortController | null>(null)
 
   const search = useCallback(async (accountId: string) => {
+    activeRequest.current?.abort()
+    const controller = new AbortController()
+    activeRequest.current = controller
+
     window.history.replaceState(null, '', `?account=${accountId}`)
     setState({ data: null, status: 'loading', error: null })
     try {
-      const data = await fetchProEncounters(accountId)
+      const data = await fetchProEncounters(accountId, controller.signal)
+      if (controller.signal.aborted) return
       setState({ data, status: 'success', error: null })
     } catch (err) {
+      if (controller.signal.aborted) return
       const message = err instanceof Error ? err.message : 'Unknown error'
       setState({ data: null, status: 'error', error: message })
     }
   }, [])
 
   const reset = useCallback(() => {
+    activeRequest.current?.abort()
     window.history.replaceState(null, '', window.location.pathname)
     setState(INITIAL_STATE)
   }, [])
@@ -40,6 +48,8 @@ export function useProEncounters(): UseProEncountersReturn {
     if (accountId) search(accountId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => () => activeRequest.current?.abort(), [])
 
   return { ...state, search, reset }
 }

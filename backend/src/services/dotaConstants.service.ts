@@ -42,6 +42,15 @@ export function clearDotaConstantsCaches(): void {
   itemConstantsPromise = null
 }
 
+export async function warmDotaConstantsCaches(): Promise<void> {
+  await Promise.all([
+    loadAbilityConstants(),
+    loadAbilityIds(),
+    loadHeroAbilityData(),
+    loadItemConstants(),
+  ])
+}
+
 function cleanItemText(value: string | null | undefined): string | null {
   const cleaned = value
     ?.replace(/<[^>]*>/g, '')

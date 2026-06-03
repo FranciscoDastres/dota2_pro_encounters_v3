@@ -25,6 +25,7 @@ router.get('/:accountId/:proAccountId', validateParams(proMatchesParamsSchema), 
       filter,
     )
 
+    res.set('Cache-Control', 'private, max-age=300, stale-while-revalidate=900')
     res.json({
       account_id: parseInt(accountId, 10),
       pro_account_id: parseInt(proAccountId, 10),

@@ -1,9 +1,12 @@
-import { useState, useMemo } from 'react'
+import { lazy, Suspense, useEffect, useState, useMemo } from 'react'
 import { usePlayerProfile } from '../hooks/usePlayerProfile'
-import type { TopHero } from '../hooks/usePlayerProfile'
+import type { TopHero } from '../types'
 import { useHeroes, heroIconUrl } from '../hooks/useHeroes'
 import { countryCodeToFlag } from '../utils/formatters'
-import { CarryComparisonMatchPanel } from './CarryComparisonMatchPanel'
+
+const CarryComparisonMatchPanel = lazy(() =>
+  import('./CarryComparisonMatchPanel').then((module) => ({ default: module.CarryComparisonMatchPanel })),
+)
 
 interface Props {
   accountId: number
@@ -58,6 +61,8 @@ function HeroIcon({ heroId, heroMap, size = 8 }: { heroId: number | null; heroMa
     <img
       src={heroIconUrl(hero)}
       alt={hero.localized_name}
+      loading="lazy"
+      decoding="async"
       className={cls + ' ring-1 ring-dota-border'}
       onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
     />
@@ -68,12 +73,16 @@ function HeroIcon({ heroId, heroMap, size = 8 }: { heroId: number | null; heroMa
 
 export function PlayerProfile({ accountId }: Props) {
   const { data, loading } = usePlayerProfile(accountId)
-  const [selectedMatchIdx, setSelectedMatchIdx] = useState(0)
+  const [selectedMatchIdx, setSelectedMatchIdx] = useState<number | null>(null)
   const heroMap = useHeroes()
 
+  useEffect(() => {
+    setSelectedMatchIdx(null)
+  }, [accountId])
+
   const selectedMatch = useMemo(() => {
-    if (!data?.recentMatches || data.recentMatches.length === 0) return null
-    return data.recentMatches[selectedMatchIdx] ?? data.recentMatches[0]
+    if (selectedMatchIdx === null || !data?.recentMatches || data.recentMatches.length === 0) return null
+    return data.recentMatches[selectedMatchIdx] ?? null
   }, [data, selectedMatchIdx])
 
   if (loading) {
@@ -118,6 +127,8 @@ export function PlayerProfile({ accountId }: Props) {
                 <img
                   src={heroCoverUrl(hero!.name)}
                   alt={hero!.localized_name}
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full scale-110 object-cover object-center opacity-90 saturate-125"
                   onError={e => {
                     const image = e.currentTarget as HTMLImageElement
@@ -152,6 +163,8 @@ export function PlayerProfile({ accountId }: Props) {
             <img
               src={data.avatarfull}
               alt={data.personaname}
+              loading="lazy"
+              decoding="async"
               className="h-16 w-16 rounded-full ring-2 ring-dota-border transition-all hover:ring-dota-gold/60"
             />
           </a>
@@ -292,12 +305,14 @@ export function PlayerProfile({ accountId }: Props) {
 
       {selectedMatch && (
         <div className="border-t border-dota-border/60 px-5 py-5">
-          <CarryComparisonMatchPanel
-            accountId={accountId}
-            matchId={selectedMatch.match_id}
-            heroId={selectedMatch.hero_id}
-            percentile={99}
-          />
+          <Suspense fallback={<div className="h-40 animate-pulse rounded-lg bg-dota-border/20" />}>
+            <CarryComparisonMatchPanel
+              accountId={accountId}
+              matchId={selectedMatch.match_id}
+              heroId={selectedMatch.hero_id}
+              percentile={99}
+            />
+          </Suspense>
         </div>
       )}
     </div>

@@ -15,7 +15,11 @@ vi.mock('axios', () => ({
 
 // Import AFTER mock setup so the service picks up the mocked axios.create
 const {
+  clearOpenDotaResponseCaches,
   clearQueuedMatchParseRequests,
+  getHeroRankings,
+  getPatches,
+  getPlayerMatchesByHeroPatch,
   getPlayerPros,
   queueMatchParseRequest,
   requestMatchParse,
@@ -39,6 +43,7 @@ describe('openDota.service', () => {
   beforeEach(() => {
     mockGet.mockReset()
     mockPost.mockReset()
+    clearOpenDotaResponseCaches()
     clearQueuedMatchParseRequests()
   })
 
@@ -71,6 +76,40 @@ describe('openDota.service', () => {
       mockGet.mockRejectedValueOnce(new Error('Network error'))
 
       await expect(getPlayerPros(12345)).rejects.toThrow('Network error')
+    })
+  })
+
+  describe('ranked purchase reference endpoints', () => {
+    it('loads hero rankings with the requested hero id', async () => {
+      mockGet.mockResolvedValueOnce({ data: { hero_id: 41, rankings: [] } })
+
+      await getHeroRankings(41)
+
+      expect(mockGet).toHaveBeenCalledWith('/rankings', {
+        params: { hero_id: 41 },
+      })
+    })
+
+    it('filters player matches by hero and patch', async () => {
+      mockGet.mockResolvedValueOnce({ data: [] })
+
+      await getPlayerMatchesByHeroPatch(100058342, 41, 60, 3)
+
+      expect(mockGet).toHaveBeenCalledWith('/players/100058342/matches', {
+        params: {
+          hero_id: 41,
+          patch: 60,
+          limit: 3,
+        },
+      })
+    })
+
+    it('loads patch constants', async () => {
+      mockGet.mockResolvedValueOnce({ data: [{ id: 60, name: '7.41', date: '2026-03-24' }] })
+
+      await getPatches()
+
+      expect(mockGet).toHaveBeenCalledWith('/constants/patch')
     })
   })
 

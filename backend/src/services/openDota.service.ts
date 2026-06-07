@@ -20,7 +20,9 @@ const PARSE_REQUEST_TTL_MS = 30 * 60 * 1000
 const parseRequests = new AsyncTtlCache<number, 'requested' | 'failed'>(PARSE_REQUEST_TTL_MS, 2_000)
 const sharedMatchesCache = new AsyncTtlCache<string, SharedMatch[]>(5 * 60 * 1000, 2_000)
 const heroBenchmarksCache = new AsyncTtlCache<number, unknown>(6 * 60 * 60 * 1000, 200)
+const heroRankingsCache = new AsyncTtlCache<number, unknown>(6 * 60 * 60 * 1000, 200)
 const heroesCache = new AsyncTtlCache<'heroes', unknown>(24 * 60 * 60 * 1000, 1)
+const patchesCache = new AsyncTtlCache<'patches', unknown>(24 * 60 * 60 * 1000, 1)
 
 // ─── Retry with exponential backoff ──────────────────────────────────────────
 
@@ -170,7 +172,9 @@ export async function getSharedMatches(
 export function clearOpenDotaResponseCaches(): void {
   sharedMatchesCache.clear()
   heroBenchmarksCache.clear()
+  heroRankingsCache.clear()
   heroesCache.clear()
+  patchesCache.clear()
 }
 
 /**
@@ -273,6 +277,56 @@ export async function getHeroBenchmarks(heroId: number): Promise<unknown> {
       client.get('/benchmarks', {
         params: { hero_id: heroId },
       }),
+    )
+    return data
+  })
+}
+
+/**
+ * Returns the highest-ranked players for a hero.
+ * Endpoint: GET /rankings?hero_id={hero_id}
+ */
+export async function getHeroRankings(heroId: number): Promise<unknown> {
+  return heroRankingsCache.getOrLoad(heroId, async () => {
+    const { data } = await withResilience('getHeroRankings', () =>
+      client.get('/rankings', {
+        params: { hero_id: heroId },
+      }),
+    )
+    return data
+  })
+}
+
+/**
+ * Returns a player's matches for one hero and patch.
+ * Endpoint: GET /players/{account_id}/matches
+ */
+export async function getPlayerMatchesByHeroPatch(
+  accountId: number,
+  heroId: number,
+  patchId: number,
+  limit = 3,
+): Promise<unknown> {
+  const { data } = await withResilience('getPlayerMatchesByHeroPatch', () =>
+    client.get(`/players/${accountId}/matches`, {
+      params: {
+        hero_id: heroId,
+        patch: patchId,
+        limit,
+      },
+    }),
+  )
+  return data
+}
+
+/**
+ * Returns Dota patch names, IDs, and release dates.
+ * Endpoint: GET /constants/patch
+ */
+export async function getPatches(): Promise<unknown> {
+  return patchesCache.getOrLoad('patches', async () => {
+    const { data } = await withResilience('getPatches', () =>
+      client.get('/constants/patch'),
     )
     return data
   })

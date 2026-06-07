@@ -38,7 +38,11 @@ export class AsyncTtlCache<K, V> {
     this.inflight.clear()
   }
 
-  getOrLoad(key: K, loader: () => Promise<V>): Promise<V> {
+  getOrLoad(
+    key: K,
+    loader: () => Promise<V>,
+    ttlMs: number | ((value: V) => number) = this.ttlMs,
+  ): Promise<V> {
     const cached = this.get(key)
     if (cached !== undefined) return Promise.resolve(cached)
 
@@ -47,7 +51,7 @@ export class AsyncTtlCache<K, V> {
 
     const request = loader()
       .then((value) => {
-        this.set(key, value)
+        this.set(key, value, typeof ttlMs === 'function' ? ttlMs(value) : ttlMs)
         return value
       })
       .finally(() => {

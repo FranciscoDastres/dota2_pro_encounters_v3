@@ -6,6 +6,8 @@ import type {
   CarryItemTimingComparison,
   CarryNeutralItemHistoryEntry,
   CarryPurchaseTrailEntry,
+  RankedPurchaseComparison,
+  RankedPurchaseReference,
   CarrySkillBuildEntry,
   CarryTalentChoice,
 } from '../../types'
@@ -313,7 +315,173 @@ export function MatchSnapshotSection({ data, kda }: { data: CarryComparisonRespo
   )
 }
 
-export function PurchaseTrailSection({ purchaseTrail }: { purchaseTrail: CarryPurchaseTrailEntry[] }) {
+function PurchaseTrailGrid({
+  purchaseTrail,
+  emptyMessage,
+}: {
+  purchaseTrail: CarryPurchaseTrailEntry[]
+  emptyMessage: string
+}) {
+  if (purchaseTrail.length === 0) {
+    return (
+      <div className="rounded-md border border-white/10 bg-black/20 px-3 py-4 text-sm text-slate-400">
+        {emptyMessage}
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-h-[300px] overflow-y-auto overscroll-contain pr-1 [scrollbar-color:rgba(103,232,249,0.35)_rgba(255,255,255,0.04)] [scrollbar-width:thin]">
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
+        {purchaseTrail.map((entry, index) => (
+          <ItemHoverCard
+            key={`${entry.timeMinute ?? 'snapshot'}-${entry.slotLabel ?? entry.itemKey}-${entry.itemKey}-${index}`}
+            itemName={entry.itemName}
+            description={entry.description}
+            metaLines={[
+              entry.timeMinute === null
+                ? 'Minuto de compra no disponible'
+                : `Adquirido: ${formatTime(entry.timeMinute)}`,
+              entry.slotLabel ? `Inventario: ${entry.slotLabel}` : '',
+            ].filter(Boolean)}
+            align={index % 6 >= 4 || index === purchaseTrail.length - 1 ? 'right' : 'left'}
+            className="min-w-0"
+          >
+            <div className="grid min-h-[34px] grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-1.5 rounded border border-white/10 bg-black/20 px-1.5 py-1 transition-colors hover:border-cyan-300/30 hover:bg-cyan-400/5">
+              <IconFrame
+                src={entry.iconUrl}
+                alt={entry.itemName}
+                fallback={entry.itemName.slice(0, 2).toUpperCase()}
+                fallbackSrcs={itemIconFallbackUrls(entry.itemKey)}
+                className="flex h-6 w-6 items-center justify-center overflow-hidden rounded border border-white/10 bg-black/30"
+                imgClassName="h-full w-full object-contain"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-[10px] font-medium leading-3 text-white">{entry.itemName}</p>
+                <p className={entry.timeMinute === null ? 'truncate text-[9px] leading-3 text-slate-400' : 'truncate text-[9px] leading-3 text-cyan-200'}>
+                  {entry.timeMinute === null ? (entry.slotLabel ?? 'Sin timing exacto') : formatTime(entry.timeMinute)}
+                </p>
+              </div>
+              <span className="rounded bg-white/[0.04] px-1 py-0.5 text-[8px] font-medium uppercase text-slate-500">
+                {entry.slotLabel ? entry.slotLabel.replace('Slot ', 'S').replace('Backpack ', 'B') : index + 1}
+              </span>
+              <span className="sr-only">{entry.description ?? entry.itemName}</span>
+            </div>
+          </ItemHoverCard>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PurchaseComparisonSummary({ comparison }: { comparison: RankedPurchaseComparison }) {
+  const statusMeta = {
+    ahead: { label: 'Adelantado', className: 'border-emerald-300/30 bg-emerald-400/10 text-emerald-200' },
+    close: { label: 'Parejo', className: 'border-cyan-300/30 bg-cyan-400/10 text-cyan-200' },
+    behind: { label: 'Atrasado', className: 'border-rose-300/30 bg-rose-400/10 text-rose-200' },
+    missing: { label: 'Faltante', className: 'border-amber-300/30 bg-amber-400/10 text-amber-200' },
+  } as const
+  const evaluationTone = {
+    ahead: 'border-emerald-300/25 bg-emerald-400/5',
+    close: 'border-cyan-300/25 bg-cyan-400/5',
+    behind: 'border-rose-300/25 bg-rose-400/5',
+    insufficient: 'border-amber-300/25 bg-amber-400/5',
+  }[comparison.evaluation.status]
+
+  return (
+    <div className={`rounded-lg border p-3 sm:p-4 ${evaluationTone}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Evaluación de timings</p>
+          <p className="mt-1 max-w-3xl text-sm text-slate-200">{comparison.evaluation.summary}</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5 text-[10px] uppercase tracking-[0.12em]">
+          <span className="rounded border border-emerald-300/20 bg-emerald-400/10 px-2 py-1 text-emerald-200">
+            {comparison.evaluation.aheadCount} adelantados
+          </span>
+          <span className="rounded border border-cyan-300/20 bg-cyan-400/10 px-2 py-1 text-cyan-200">
+            {comparison.evaluation.closeCount} parejos
+          </span>
+          <span className="rounded border border-rose-300/20 bg-rose-400/10 px-2 py-1 text-rose-200">
+            {comparison.evaluation.behindCount} atrasados
+          </span>
+          <span className="rounded border border-amber-300/20 bg-amber-400/10 px-2 py-1 text-amber-200">
+            {comparison.evaluation.missingCount} faltantes
+          </span>
+        </div>
+      </div>
+
+      {comparison.items.length > 0 && (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full min-w-[620px] text-left text-xs">
+            <thead className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
+              <tr>
+                <th className="pb-2 font-medium">Ítem</th>
+                <th className="pb-2 font-medium">Tú</th>
+                <th className="pb-2 font-medium">Referencia</th>
+                <th className="pb-2 font-medium">Diferencia</th>
+                <th className="pb-2 font-medium">Evaluación</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {comparison.items.map((item) => {
+                const meta = statusMeta[item.status]
+                return (
+                  <tr key={item.itemKey}>
+                    <td className="py-2 pr-3">
+                      <div className="flex items-center gap-2">
+                        <IconFrame
+                          src={item.iconUrl}
+                          alt={item.itemName}
+                          fallback={item.itemName.slice(0, 2).toUpperCase()}
+                          fallbackSrcs={itemIconFallbackUrls(item.itemKey)}
+                          className="h-7 w-7 overflow-hidden rounded border border-white/10 bg-black/30"
+                          imgClassName="h-full w-full object-contain"
+                        />
+                        <span className="font-medium text-white">{item.itemName}</span>
+                      </div>
+                    </td>
+                    <td className="py-2 pr-3 text-slate-300">{item.userMinute === null ? 'No comprado' : formatTime(item.userMinute)}</td>
+                    <td className="py-2 pr-3 text-slate-300">{formatTime(item.referenceMinute)}</td>
+                    <td className="py-2 pr-3 text-slate-300">
+                      {item.differenceMinutes === null ? '—' : `${formatSigned(item.differenceMinutes)}m`}
+                    </td>
+                    <td className="py-2">
+                      <span className={`inline-flex rounded border px-2 py-1 text-[10px] uppercase tracking-[0.12em] ${meta.className}`}>
+                        {meta.label}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {comparison.evaluation.improvements.length > 0 && (
+        <div className="mt-3 rounded-md border border-white/10 bg-black/20 px-3 py-2.5">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Qué mejorar</p>
+          <ul className="mt-1.5 space-y-1 text-xs text-slate-300">
+            {comparison.evaluation.improvements.map((improvement) => (
+              <li key={improvement}>• {improvement}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function PurchaseTrailSection({
+  purchaseTrail,
+  reference,
+  comparison,
+}: {
+  purchaseTrail: CarryPurchaseTrailEntry[]
+  reference: RankedPurchaseReference | null
+  comparison: RankedPurchaseComparison | null
+}) {
   const timedPurchases = purchaseTrail.filter((entry) => entry.timeMinute !== null).length
 
   return (
@@ -322,7 +490,7 @@ export function PurchaseTrailSection({ purchaseTrail }: { purchaseTrail: CarryPu
         <SectionTitle
           icon={<BootIcon />}
           title="Purchase Trail"
-          subtitle="The item path from your actual match log or inventory"
+          subtitle="Tu ruta de compras y una referencia real de alto nivel"
           className="mb-0"
         />
         <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-100">
@@ -330,50 +498,54 @@ export function PurchaseTrailSection({ purchaseTrail }: { purchaseTrail: CarryPu
         </span>
       </div>
 
-      {purchaseTrail.length > 0 ? (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {purchaseTrail.map((entry, index) => (
-            <ItemHoverCard
-              key={`${entry.timeMinute ?? 'snapshot'}-${entry.slotLabel ?? entry.itemKey}-${entry.itemKey}`}
-              itemName={entry.itemName}
-              description={entry.description}
-              metaLines={[
-                entry.timeMinute === null
-                  ? 'Minuto de compra no disponible'
-                  : `Adquirido: ${formatTime(entry.timeMinute)}`,
-                entry.slotLabel ? `Inventario: ${entry.slotLabel}` : '',
-              ].filter(Boolean)}
-              align={index % 4 === 3 || index === purchaseTrail.length - 1 ? 'right' : 'left'}
-              className="min-w-0"
-            >
-              <div className="grid min-h-[62px] grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2.5 py-2 transition-colors hover:border-cyan-300/30 hover:bg-cyan-400/5">
-                <IconFrame
-                  src={entry.iconUrl}
-                  alt={entry.itemName}
-                  fallback={entry.itemName.slice(0, 2).toUpperCase()}
-                  fallbackSrcs={itemIconFallbackUrls(entry.itemKey)}
-                  className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-black/30"
-                  imgClassName="h-full w-full object-contain p-0.5"
-                />
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-medium text-white">{entry.itemName}</p>
-                  <p className={entry.timeMinute === null ? 'mt-0.5 text-[11px] text-slate-400' : 'mt-0.5 text-[11px] text-cyan-200'}>
-                    {entry.timeMinute === null ? (entry.slotLabel ?? 'No exact timing') : formatTime(entry.timeMinute)}
-                  </p>
-                </div>
-                <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.12em] text-slate-400">
-                  {entry.slotLabel ? entry.slotLabel.replace('Slot ', 'S').replace('Backpack ', 'B') : index + 1}
-                </span>
-                <span className="sr-only">{entry.description ?? entry.itemName}</span>
+      <div className="space-y-4">
+        <div>
+          <p className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-cyan-100">Tu partida</p>
+          <PurchaseTrailGrid
+            purchaseTrail={purchaseTrail}
+            emptyMessage="No hay datos de compras disponibles para esta partida."
+          />
+        </div>
+
+        {reference ? (
+          <div className="rounded-lg border border-purple-300/15 bg-purple-400/[0.03] p-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-purple-200">
+                  Referencia top-ranked · {reference.playerName}
+                </p>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Score {Math.round(reference.rankingScore)} · Parche {reference.patchName} · {new Intl.DateTimeFormat('es-CL', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  }).format(new Date(reference.startTime * 1000))}
+                  {reference.withinLast14Days ? ' · últimos 14 días' : ''}
+                </p>
               </div>
-            </ItemHoverCard>
-          ))}
-        </div>
-      ) : (
-        <div className="rounded-md border border-white/10 bg-black/20 px-3 py-4 text-sm text-slate-400">
-          No purchase trail data available for this match.
-        </div>
-      )}
+              <a
+                href={`https://www.opendota.com/matches/${reference.matchId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-purple-300/25 bg-purple-400/10 px-2.5 py-1 text-[11px] font-medium text-purple-100 transition-colors hover:border-purple-300/50 hover:bg-purple-400/15"
+              >
+                Ver referencia
+                <ExternalLinkIcon />
+              </a>
+            </div>
+            <PurchaseTrailGrid
+              purchaseTrail={reference.purchaseTrail}
+              emptyMessage="La partida de referencia no tiene purchase_log disponible."
+            />
+          </div>
+        ) : (
+          <div className="rounded-md border border-purple-300/15 bg-purple-400/[0.03] px-3 py-3 text-xs text-slate-400">
+            No se encontró una partida parseada de un jugador top-ranked para este héroe en el parche actual o los dos anteriores.
+          </div>
+        )}
+
+        {comparison && <PurchaseComparisonSummary comparison={comparison} />}
+      </div>
     </div>
   )
 }

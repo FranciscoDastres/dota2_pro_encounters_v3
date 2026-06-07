@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildCoreItems,
+  buildPurchaseTrail,
   buildTalentChoices,
   compareItemTimings,
 } from '../services/carryProgression.service'
@@ -91,6 +92,25 @@ describe('carry progression helpers', () => {
       itemKey: 'maelstrom',
       completedMinute: null,
       timingSource: 'unavailable',
+    })
+  })
+
+  it('includes every purchase log entry without truncating late-game items', () => {
+    const purchaseLog = Array.from({ length: 24 }, (_, index) => ({
+      time: (index + 1) * 60,
+      key: `item_${index + 1}`,
+    }))
+
+    const result = buildPurchaseTrail(player({ purchase_log: purchaseLog }), [])
+
+    expect(result).toHaveLength(24)
+    expect(result[0]).toMatchObject({
+      itemKey: 'item_1',
+      timeMinute: 1,
+    })
+    expect(result[23]).toMatchObject({
+      itemKey: 'item_24',
+      timeMinute: 24,
     })
   })
 

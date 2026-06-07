@@ -82,6 +82,16 @@ export function BootIcon() {
   )
 }
 
+export function ExternalLinkIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M15 3h6v6" />
+      <path d="m10 14 11-11" />
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    </svg>
+  )
+}
+
 export function TimingIcon({ status }: { status: 'on_time' | 'late' | 'missing' | 'snapshot' }) {
   if (status === 'on_time') {
     return (

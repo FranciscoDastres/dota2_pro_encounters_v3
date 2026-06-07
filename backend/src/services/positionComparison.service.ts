@@ -40,6 +40,13 @@ export * from './carryComparison.schemas'
 export type * from './carryComparison.types'
 
 const comparisonCache = new AsyncTtlCache<string, CarryComparisonResponse>(5 * 60 * 1000, 1_000)
+const INCOMPLETE_COMPARISON_TTL_MS = 5_000
+const PARSE_REFETCH_ATTEMPTS = 3
+const PARSE_REFETCH_DELAY_MS = process.env.NODE_ENV === 'test' ? 0 : 4_000
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 function findRequestedPlayer(match: OpenDotaMatch, accountId: number, heroId: number): OpenDotaMatchPlayer {
   const player = match.players.find((entry) => entry.account_id === accountId)
@@ -57,6 +64,22 @@ function findRequestedPlayer(match: OpenDotaMatch, accountId: number, heroId: nu
 
 export function clearPositionComparisonCache(): void {
   comparisonCache.clear()
+}
+
+async function refetchMatchUntilPurchaseLog(params: {
+  matchId: number
+  accountId: number
+  heroId: number
+}): Promise<{ match: OpenDotaMatch; player: OpenDotaMatchPlayer } | null> {
+  for (let attempt = 0; attempt < PARSE_REFETCH_ATTEMPTS; attempt++) {
+    await wait(PARSE_REFETCH_DELAY_MS)
+
+    const match = openDotaMatchSchema.parse(await getMatchDetails(params.matchId))
+    const player = findRequestedPlayer(match, params.accountId, params.heroId)
+    if (player.purchase_log.length > 0) return { match, player }
+  }
+
+  return null
 }
 
 export function comparePositionPerformance(params: {
@@ -177,15 +200,27 @@ export async function getPositionComparison(params: {
       loadItemConstants(),
     ])
 
-    const match = openDotaMatchSchema.parse(matchPayload)
+    let match = openDotaMatchSchema.parse(matchPayload)
     if (match.match_id !== params.matchId) {
       throw new Error('OpenDota match payload did not match the requested matchId.')
     }
 
-    const player = findRequestedPlayer(match, params.accountId, params.heroId)
+    let player = findRequestedPlayer(match, params.accountId, params.heroId)
     const matchParseStatus = player.purchase_log.length > 0
       ? 'not_needed'
       : queueMatchParseRequest(params.matchId)
+
+    if (player.purchase_log.length === 0) {
+      const parsed = await refetchMatchUntilPurchaseLog({
+        matchId: params.matchId,
+        accountId: params.accountId,
+        heroId: params.heroId,
+      })
+      if (parsed) {
+        match = parsed.match
+        player = parsed.player
+      }
+    }
 
     const benchmarks = openDotaBenchmarksSchema.parse(benchmarksPayload)
     const heroes = openDotaHeroesSchema.parse(heroesPayload)
@@ -205,5 +240,9 @@ export async function getPositionComparison(params: {
       percentile,
       matchParseStatus,
     })
-  })
+  }, (response) => (
+    response.match_parse.purchase_log_available
+      ? 5 * 60 * 1000
+      : INCOMPLETE_COMPARISON_TTL_MS
+  ))
 }

@@ -26,6 +26,7 @@ import type {
   CarrySkillBuildEntry,
   HeroAbilityMetadata,
   MatchParseRequestStatus,
+  RankedPurchaseReference,
   ResolvedAbilityConstant,
   ResolvedItemConstant,
 } from './carryComparison.types'
@@ -35,6 +36,10 @@ import type {
   OpenDotaMatchPlayer,
 } from './carryComparison.schemas'
 import { AsyncTtlCache } from './asyncTtlCache.service'
+import {
+  compareRankedPurchaseTrails,
+  getHeroPurchaseReference,
+} from './heroPurchaseReference.service'
 
 export * from './carryComparison.schemas'
 export type * from './carryComparison.types'
@@ -94,6 +99,7 @@ export function comparePositionPerformance(params: {
   itemConstants?: ResolvedItemConstant[]
   percentile?: BenchmarkPercentile
   matchParseStatus?: MatchParseRequestStatus
+  rankedPurchaseReference?: RankedPurchaseReference | null
 }): CarryComparisonResponse {
   const percentile = params.percentile ?? 95
   const durationMinutes = params.match.duration / 60
@@ -103,6 +109,7 @@ export function comparePositionPerformance(params: {
 
   const metrics = computeRoleMetrics(position, params.player, params.benchmarks, percentile, durationMinutes)
   const itemTimings = compareItemTimings(params.player.hero_id, params.player.purchase_log, itemConstants)
+  const purchaseTrail = buildPurchaseTrail(params.player, itemConstants)
   const gpmMetric = metrics.find((metric) => metric.key === 'gold_per_min')
   const lh10Metric = metrics.find((metric) => metric.key === 'last_hits_per_10')
   const gpmRatio = gpmMetric?.ratio ?? 1
@@ -137,7 +144,13 @@ export function comparePositionPerformance(params: {
     metrics,
     item_timings: itemTimings,
     core_items: buildCoreItems(params.player, itemConstants),
-    purchase_trail: buildPurchaseTrail(params.player, itemConstants),
+    purchase_trail: purchaseTrail,
+    ranked_purchase_reference: params.rankedPurchaseReference ?? null,
+    ranked_purchase_comparison: compareRankedPurchaseTrails(
+      purchaseTrail,
+      params.rankedPurchaseReference ?? null,
+      itemConstants,
+    ),
     progression: {
       skill_build: params.skillBuild ?? [],
       talents: buildTalentChoices(
@@ -182,6 +195,7 @@ export async function getPositionComparison(params: {
   const cacheKey = `${params.accountId}:${params.matchId}:${params.heroId}:${percentile}`
 
   return comparisonCache.getOrLoad(cacheKey, async () => {
+    const itemConstantsPromise = loadItemConstants()
     const [
       matchPayload,
       benchmarksPayload,
@@ -190,6 +204,7 @@ export async function getPositionComparison(params: {
       heroAbilityData,
       heroesPayload,
       itemConstants,
+      rankedPurchaseReference,
     ] = await Promise.all([
       getMatchDetails(params.matchId),
       getHeroBenchmarks(params.heroId),
@@ -197,7 +212,10 @@ export async function getPositionComparison(params: {
       loadAbilityIds(),
       loadHeroAbilityData(),
       getHeroes(),
-      loadItemConstants(),
+      itemConstantsPromise,
+      itemConstantsPromise
+        .then((items) => getHeroPurchaseReference(params.heroId, items))
+        .catch(() => null),
     ])
 
     let match = openDotaMatchSchema.parse(matchPayload)
@@ -239,6 +257,7 @@ export async function getPositionComparison(params: {
       itemConstants,
       percentile,
       matchParseStatus,
+      rankedPurchaseReference,
     })
   }, (response) => (
     response.match_parse.purchase_log_available

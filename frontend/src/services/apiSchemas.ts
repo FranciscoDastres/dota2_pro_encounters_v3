@@ -124,6 +124,40 @@ export const carryPurchaseTrailEntrySchema = z.object({
   description: z.string().nullable(),
 })
 
+export const rankedPurchaseReferenceSchema = z.object({
+  accountId: z.number(),
+  playerName: z.string(),
+  rankingScore: z.number(),
+  rankTier: z.number().nullable(),
+  matchId: z.number(),
+  startTime: z.number(),
+  patchId: z.number(),
+  patchName: z.string(),
+  withinLast14Days: z.boolean(),
+  purchaseTrail: z.array(carryPurchaseTrailEntrySchema),
+})
+
+export const rankedPurchaseComparisonSchema = z.object({
+  items: z.array(z.object({
+    itemKey: z.string(),
+    itemName: z.string(),
+    iconUrl: z.string(),
+    userMinute: z.number().nullable(),
+    referenceMinute: z.number(),
+    differenceMinutes: z.number().nullable(),
+    status: z.enum(['ahead', 'close', 'behind', 'missing']),
+  })),
+  evaluation: z.object({
+    status: z.enum(['ahead', 'close', 'behind', 'insufficient']),
+    summary: z.string(),
+    improvements: z.array(z.string()),
+    aheadCount: z.number(),
+    closeCount: z.number(),
+    behindCount: z.number(),
+    missingCount: z.number(),
+  }),
+})
+
 export const carryCoreItemEntrySchema = z.object({
   itemKey: z.string(),
   itemName: z.string(),
@@ -195,6 +229,8 @@ export const carryComparisonResponseSchema = z.object({
   item_timings: z.array(carryItemTimingComparisonSchema),
   core_items: z.array(carryCoreItemEntrySchema).default([]),
   purchase_trail: z.array(carryPurchaseTrailEntrySchema),
+  ranked_purchase_reference: rankedPurchaseReferenceSchema.nullable().default(null),
+  ranked_purchase_comparison: rankedPurchaseComparisonSchema.nullable().default(null),
   progression: z.object({
     skill_build: z.array(carrySkillBuildEntrySchema),
     talents: z.array(carryTalentChoiceSchema),

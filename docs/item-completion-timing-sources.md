@@ -66,6 +66,27 @@ Fields include:
 
 This endpoint is useful for pro/hero timing targets, not for exact timing in one match. It returns aggregate buckets across many games, so it should not replace `purchase_log` for the player's selected match.
 
+## Ranked Player Purchase Trail Reference
+
+The comparison panel can also show a concrete high-level player match:
+
+- `GET /rankings?hero_id={heroId}` selects high-scoring hero specialists,
+  preferring entries identified as professional players.
+- `GET /constants/patch` supplies the current patch and the two previous patch
+  IDs used as the search window.
+- `GET /players/{accountId}/matches?hero_id={heroId}&patch={patchId}` finds
+  recent matches for each candidate.
+- `GET /matches/{matchId}` supplies the exact `purchase_log`.
+
+Selection rules:
+
+- Search the current patch first, then at most two previous patches.
+- Prioritize matches played within the last 14 days.
+- Never show a reference trail without a real parsed `purchase_log`.
+- Cache successful references for six hours and empty searches for 30 minutes.
+- Keep this reference separate from the percentile benchmark. The percentile is
+  an aggregate target; the ranked purchase trail is one concrete match.
+
 ## STRATZ
 
 STRATZ advertises a GraphQL API and detailed parsed match data, so it is a possible future source for richer item history. Anonymous backend calls to `https://api.stratz.com/graphql` currently receive a Cloudflare `403` challenge, so this app should not depend on STRATZ until we have a supported API token/access path and a tested GraphQL query.

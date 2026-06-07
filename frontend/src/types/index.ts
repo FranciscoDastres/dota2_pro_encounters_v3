@@ -131,6 +131,42 @@ export interface CarryPurchaseTrailEntry {
   description: string | null
 }
 
+export interface RankedPurchaseReference {
+  accountId: number
+  playerName: string
+  rankingScore: number
+  rankTier: number | null
+  matchId: number
+  startTime: number
+  patchId: number
+  patchName: string
+  withinLast14Days: boolean
+  purchaseTrail: CarryPurchaseTrailEntry[]
+}
+
+export interface RankedPurchaseComparisonItem {
+  itemKey: string
+  itemName: string
+  iconUrl: string
+  userMinute: number | null
+  referenceMinute: number
+  differenceMinutes: number | null
+  status: 'ahead' | 'close' | 'behind' | 'missing'
+}
+
+export interface RankedPurchaseComparison {
+  items: RankedPurchaseComparisonItem[]
+  evaluation: {
+    status: 'ahead' | 'close' | 'behind' | 'insufficient'
+    summary: string
+    improvements: string[]
+    aheadCount: number
+    closeCount: number
+    behindCount: number
+    missingCount: number
+  }
+}
+
 export interface CarryCoreItemEntry {
   itemKey: string
   itemName: string
@@ -202,6 +238,8 @@ export interface CarryComparisonResponse {
   item_timings: CarryItemTimingComparison[]
   core_items: CarryCoreItemEntry[]
   purchase_trail: CarryPurchaseTrailEntry[]
+  ranked_purchase_reference: RankedPurchaseReference | null
+  ranked_purchase_comparison: RankedPurchaseComparison | null
   progression: {
     skill_build: CarrySkillBuildEntry[]
     talents: CarryTalentChoice[]

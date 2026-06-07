@@ -8,6 +8,7 @@ const mockGetHeroes = vi.fn()
 const mockGetHeroAbilityData = vi.fn()
 const mockGetItems = vi.fn()
 const mockQueueMatchParseRequest = vi.fn()
+const MAELSTROM_ITEM_ID = 166
 
 vi.mock('../services/openDota.service', () => ({
   getMatchDetails: mockGetMatchDetails,
@@ -92,7 +93,7 @@ describe('getCarryComparison', () => {
   })
 
   it('handles partially parsed OpenDota matches without damage or progression logs', async () => {
-    mockGetMatchDetails.mockResolvedValueOnce({
+    mockGetMatchDetails.mockResolvedValue({
       match_id: 9002,
       duration: 1811,
       players: [
@@ -160,6 +161,78 @@ describe('getCarryComparison', () => {
     ])
   })
 
+  it('refetches a requested parse and returns exact item timings when OpenDota finishes', async () => {
+    const basePlayer = {
+      account_id: 12345,
+      hero_id: 41,
+      gold_per_min: 760,
+      xp_per_min: 810,
+      last_hits: 340,
+      hero_damage: 28000,
+      tower_damage: 5000,
+      deaths: 1,
+      deaths_log: [],
+      item_0: MAELSTROM_ITEM_ID,
+    }
+
+    mockGetMatchDetails
+      .mockResolvedValueOnce({
+        match_id: 9004,
+        duration: 2400,
+        players: [{ ...basePlayer, purchase_log: [] }],
+      })
+      .mockResolvedValueOnce({
+        match_id: 9004,
+        duration: 2400,
+        players: [{
+          ...basePlayer,
+          purchase_log: [{ time: 780, key: 'maelstrom' }],
+        }],
+      })
+
+    mockGetHeroBenchmarks.mockResolvedValueOnce({
+      hero_id: 41,
+      result: {
+        gold_per_min: [{ percentile: 99, value: 720 }],
+        last_hits_per_min: [{ percentile: 99, value: 8.8 }],
+        xp_per_min: [{ percentile: 99, value: 780 }],
+      },
+    })
+    mockGetAbilityConstants.mockResolvedValueOnce({})
+    mockGetAbilityIds.mockResolvedValueOnce({})
+    mockGetHeroes.mockResolvedValueOnce([{ id: 41, name: 'npc_dota_hero_furion' }])
+    mockGetHeroAbilityData.mockResolvedValueOnce({})
+    mockGetItems.mockResolvedValueOnce({
+      maelstrom: {
+        id: MAELSTROM_ITEM_ID,
+        dname: 'Maelstrom',
+        img: '/apps/dota2/images/dota_react/items/maelstrom.png',
+      },
+    })
+
+    const result = await getCarryComparison({
+      accountId: 12345,
+      matchId: 9004,
+      heroId: 41,
+      percentile: 99,
+    })
+
+    expect(mockQueueMatchParseRequest).toHaveBeenCalledWith(9004)
+    expect(mockGetMatchDetails).toHaveBeenCalledTimes(2)
+    expect(result.match_parse.purchase_log_available).toBe(true)
+    expect(result.core_items).toEqual([
+      expect.objectContaining({
+        itemKey: 'maelstrom',
+        completedMinute: 13,
+        timingSource: 'purchase_log',
+      }),
+    ])
+    expect(result.purchase_trail[0]).toEqual(expect.objectContaining({
+      itemKey: 'maelstrom',
+      timeMinute: 13,
+    }))
+  })
+
   it('starts independent OpenDota requests in parallel', async () => {
     let resolveMatch!: (value: unknown) => void
     mockGetMatchDetails.mockImplementationOnce(() => new Promise((resolve) => {
@@ -198,7 +271,7 @@ describe('getCarryComparison', () => {
         gold_per_min: 500,
         xp_per_min: 500,
         last_hits: 100,
-        purchase_log: [],
+        purchase_log: [{ time: 780, key: 'maelstrom' }],
       }],
     })
 

@@ -44,7 +44,11 @@ export function PositionComparisonMatchPanel({ accountId, matchId, heroId, perce
 
       <div className="space-y-4 p-4 sm:p-5">
         <MatchSnapshotSection data={data} kda={kda} />
-        <PurchaseTrailSection purchaseTrail={data.purchase_trail} />
+        <PurchaseTrailSection
+          purchaseTrail={data.purchase_trail}
+          reference={data.ranked_purchase_reference}
+          comparison={data.ranked_purchase_comparison}
+        />
 
         <div className="grid gap-4 xl:grid-cols-[1.06fr_0.94fr]">
           <SkillBuildSection skillBuild={data.progression.skill_build} />

@@ -13,6 +13,7 @@ import type { HeroMap } from '../../hooks/useHeroes'
 import {
   BenchmarkIcon,
   BootIcon,
+  ExternalLinkIcon,
   GpmIcon,
   LastHitsIcon,
   TowerIcon,
@@ -126,9 +127,20 @@ export function MatchBenchmarkHeader({
                 {data.fulfilled_role ? 'Role Met' : 'Role Gap'}
               </span>
             </div>
-            <p className="mt-1 text-xs text-slate-400">
-              Percentile {percentile} template vs this match · {data.scenario === 'comeback' ? 'Comeback' : 'Stomp'} scenario
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <p className="text-xs text-slate-400">
+                Percentile {percentile} template vs this match · {data.scenario === 'comeback' ? 'Comeback' : 'Stomp'} scenario
+              </p>
+              <a
+                href={`https://www.opendota.com/matches/${data.match_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-cyan-300/25 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium text-cyan-100 transition-colors hover:border-cyan-300/50 hover:bg-cyan-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60"
+              >
+                Ver partida en OpenDota
+                <ExternalLinkIcon />
+              </a>
+            </div>
           </div>
         </div>
 

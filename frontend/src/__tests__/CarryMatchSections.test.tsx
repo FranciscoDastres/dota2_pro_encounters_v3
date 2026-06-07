@@ -1,6 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { MatchBenchmarkHeader } from '../components/comparison/CarryMatchSections'
+import {
+  MatchBenchmarkHeader,
+  PurchaseTrailSection,
+} from '../components/comparison/CarryMatchSections'
 import type { CarryComparisonResponse } from '../types'
 
 describe('MatchBenchmarkHeader', () => {
@@ -46,5 +49,64 @@ describe('MatchBenchmarkHeader', () => {
     expect(link).toHaveAttribute('href', 'https://www.opendota.com/matches/8827126159')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('renders scrollable user and ranked reference trails with an evaluation', () => {
+    const purchase = {
+      timeMinute: 13,
+      itemKey: 'maelstrom',
+      itemName: 'Maelstrom',
+      iconUrl: 'https://cdn.test/maelstrom.png',
+      slotLabel: null,
+      description: 'Chain lightning.',
+    }
+
+    const { container } = render(
+      <PurchaseTrailSection
+        purchaseTrail={[purchase]}
+        reference={{
+          accountId: 100058342,
+          playerName: 'skiter',
+          rankingScore: 8314.43,
+          rankTier: 80,
+          matchId: 8742496748,
+          startTime: 1774386240,
+          patchId: 60,
+          patchName: '7.41',
+          withinLast14Days: false,
+          purchaseTrail: [{ ...purchase, timeMinute: 11 }],
+        }}
+        comparison={{
+          items: [{
+            itemKey: 'maelstrom',
+            itemName: 'Maelstrom',
+            iconUrl: purchase.iconUrl,
+            userMinute: 13,
+            referenceMinute: 11,
+            differenceMinutes: 2,
+            status: 'close',
+          }],
+          evaluation: {
+            status: 'close',
+            summary: 'Tu progresión estuvo cerca de la referencia.',
+            improvements: ['Mantén este ritmo.'],
+            aheadCount: 0,
+            closeCount: 1,
+            behindCount: 0,
+            missingCount: 0,
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByText(/referencia top-ranked · skiter/i)).toBeInTheDocument()
+    expect(screen.getByText(/evaluación de timings/i)).toBeInTheDocument()
+    expect(screen.getByText(/qué mejorar/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /ver referencia/i })).toHaveAttribute(
+      'href',
+      'https://www.opendota.com/matches/8742496748',
+    )
+    expect(container.querySelectorAll('.max-h-\\[300px\\]')).toHaveLength(2)
+    expect(container.querySelectorAll('.min-h-\\[34px\\]')).toHaveLength(2)
   })
 })

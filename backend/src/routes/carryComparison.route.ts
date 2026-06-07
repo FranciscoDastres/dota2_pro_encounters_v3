@@ -23,7 +23,12 @@ router.get('/:accountId/:matchId/:heroId', validateParams(carryComparisonParamsS
       percentile,
     })
 
-    res.set('Cache-Control', 'private, max-age=300, stale-while-revalidate=900')
+    res.set(
+      'Cache-Control',
+      comparison.match_parse.purchase_log_available
+        ? 'private, max-age=300, stale-while-revalidate=900'
+        : 'private, no-store',
+    )
     res.json(comparison)
   } catch (err) {
     if (axios.isAxiosError(err)) {

@@ -298,7 +298,7 @@ export function buildPurchaseTrail(
 ): CarryPurchaseTrailEntry[] {
   const purchaseLog = player.purchase_log ?? []
   if (purchaseLog.length > 0) {
-    return purchaseLog.slice(0, 18).map((entry) => {
+    return purchaseLog.map((entry) => {
       const resolved = resolveItemByKey(itemConstants, entry.key)
       const itemKey = resolved?.key ?? canonicalItemKey(entry.key)
       return {

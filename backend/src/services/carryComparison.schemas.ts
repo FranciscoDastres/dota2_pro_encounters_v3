@@ -45,6 +45,37 @@ export const openDotaPlayerMatchSchema = z.object({
   hero_id: z.number(),
 })
 
+export const openDotaRankedPlayerSchema = z.object({
+  account_id: z.number(),
+  score: z.number(),
+  personaname: z.string().nullable().optional().default(null),
+  name: z.string().nullable().optional().default(null),
+  avatar: z.string().nullable().optional().default(null),
+  rank_tier: z.number().nullable().optional().default(null),
+}).passthrough()
+
+export const openDotaHeroRankingsSchema = z.object({
+  hero_id: z.number(),
+  rankings: z.array(openDotaRankedPlayerSchema),
+})
+
+export const openDotaPatchSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  date: z.string(),
+})
+
+export const openDotaPatchesSchema = z.array(openDotaPatchSchema)
+
+export const openDotaReferenceMatchSchema = z.object({
+  match_id: z.number(),
+  hero_id: z.number(),
+  start_time: z.number(),
+  duration: z.number().nonnegative(),
+}).passthrough()
+
+export const openDotaReferenceMatchesSchema = z.array(openDotaReferenceMatchSchema)
+
 export const openDotaPurchaseLogSchema = z.object({
   time: z.number(),
   key: z.string(),
@@ -72,6 +103,8 @@ const parsedNumberWithFallback = z.preprocess(
 
 export const openDotaMatchPlayerSchema = z.object({
   account_id: z.number().optional(),
+  personaname: z.string().nullable().optional(),
+  name: z.string().nullable().optional(),
   hero_id: z.number(),
   player_slot: z.number().optional(),
   isRadiant: z.boolean().optional(),
@@ -106,6 +139,7 @@ export const openDotaMatchPlayerSchema = z.object({
 
 export const openDotaMatchSchema = z.object({
   match_id: z.number(),
+  start_time: z.number().optional().default(0),
   duration: z.number().positive(),
   players: z.array(openDotaMatchPlayerSchema),
 })
@@ -128,6 +162,9 @@ export const openDotaBenchmarksSchema = z.object({
 
 export type OpenDotaAbilityConstant = z.infer<typeof openDotaAbilityConstantSchema>
 export type OpenDotaItem = z.infer<typeof openDotaItemSchema>
+export type OpenDotaRankedPlayer = z.infer<typeof openDotaRankedPlayerSchema>
+export type OpenDotaPatch = z.infer<typeof openDotaPatchSchema>
+export type OpenDotaReferenceMatch = z.infer<typeof openDotaReferenceMatchSchema>
 export type OpenDotaPurchaseLog = z.infer<typeof openDotaPurchaseLogSchema>
 export type OpenDotaNeutralItemHistory = z.infer<typeof openDotaNeutralItemHistorySchema>
 export type OpenDotaMatchPlayer = z.infer<typeof openDotaMatchPlayerSchema>
